@@ -1,0 +1,47 @@
+body {
+    background-color: #000; /* Saf siyah, bataryayı da korur */
+    color: #ff0000; /* Genocide rotası kırmızısı */
+    font-family: 'Courier New', Courier, monospace; /* Retro oyun havası */
+    text-align: center;
+    padding: 20px;
+}
+
+h1 {
+    font-size: 24px;
+    text-shadow: 2px 2px #550000;
+    margin-bottom: 30px;
+}
+
+input {
+    width: 90%;
+    padding: 12px;
+    background: #111;
+    border: 1px solid #ff0000;
+    color: #fff;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+button {
+    width: 150px;
+    padding: 12px;
+    background: #ff0000;
+    color: #000;
+    border: none;
+    font-weight: bold;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+button:hover {
+    background: #fff; /* Üzerine gelince beyaz olsun */
+    color: #ff0000;
+}
+
+#player-container {
+    margin-top: 40px;
+    border: 2px dashed #333;
+    padding: 20px;
+    border-radius: 15px;
+}
