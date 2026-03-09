@@ -1,13 +1,13 @@
 /**
- * MUARTPLAYER - GENOCIDE EDITION (2026)
- * Özellikler: Reklam Savar, Kesin Döngü, Otomatik Tarama, Geçmiş Kaydı
+ * MUARTPLAYER - ANTI-AD & UNDERTALE EDITION (2026)
+ * Reklam Yakalama, Otomatik Sessize Alma ve Kesin Döngü Modu
  */
 
 let player, isPlaylist = false, isScanning = false, playlistTitles = {};
 let currentListId = "", skipDirection = 1, loopState = 0, isShuffled = false;
 let loopCheckInterval;
 
-// 1. YouTube API Hazırlığı
+// 1. YouTube API Hazırlığı (Reklam Engelleme Parametreleriyle)
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('main-player', {
         height: '100%', 
@@ -17,6 +17,9 @@ function onYouTubeIframeAPIReady() {
             'controls': 1, 
             'rel': 0, 
             'enablejsapi': 1,
+            'modestbranding': 1, // YouTube logosunu gizle
+            'iv_load_policy': 3,  // Video içi duyuruları kapat
+            'showinfo': 0,
             'origin': window.location.origin
         },
         events: {
@@ -29,11 +32,11 @@ function onYouTubeIframeAPIReady() {
 
 function onPlayerReady() {
     updateHistoryUI();
-    startLoopTimer(); // Döngü motorunu başlat
+    startUltraControlTimer(); // Reklam ve Döngü motoru
 }
 
-// 2. REKLAM SAVAR VE DÖNGÜ MOTORU (Saniyelik Kontrol)
-function startLoopTimer() {
+// 2. ULTRA KONTROL MOTORU (Reklam Atlatma & Döngü)
+function startUltraControlTimer() {
     if (loopCheckInterval) clearInterval(loopCheckInterval);
     loopCheckInterval = setInterval(() => {
         if (!player || typeof player.getPlayerState !== "function") return;
@@ -41,46 +44,56 @@ function startLoopTimer() {
         let state = player.getPlayerState();
         let videoData = player.getVideoData();
 
-        // REKLAM TESPİTİ: Başlık yoksa veya "Advertisement" ise sesi kıs
-        if (state === 1 && videoData) {
-            if (videoData.title === "" || videoData.author === "" || videoData.title === "Advertisement") {
-                player.mute();
-                document.getElementById('status').innerText = "🛡️ Reklam Sessize Alındı...";
-            } else {
-                if (!isScanning) player.unMute();
+        // --- REKLAM YAKALAYICI (Burası Önemli) ---
+        // Reklam oynuyorsa veya başlık boşsa (reklam belirtisi) devreye girer
+        let isAd = (player.getAdState && player.getAdState() === 1) || 
+                   (videoData && (videoData.title === "" || videoData.title === "Advertisement"));
+
+        if (isAd) {
+            player.setVolume(0); // Reklam sesini anında kes
+            document.getElementById('status').innerText = "🛡️ Reklam Atlanıyor / Sessiz Mod...";
+            
+            // Reklamı ileri sararak bitirmeye zorla (Eğer YouTube izin verirse)
+            if (player.getDuration() > 0) {
+                player.seekTo(player.getDuration() + 10, true);
+            }
+        } else {
+            // Reklam değilse ve tarama modunda değilsek sesi geri aç
+            if (!isScanning) {
+                let vol = document.getElementById('volume-slider').value;
+                player.setVolume(vol);
             }
         }
 
-        // TEKLİ DÖNGÜ GARANTİSİ: Şarkı bitmeden 1.2 sn önce yakala ve başa sar
+        // --- TEKLİ DÖNGÜ (Loop) ---
         if (state === 1 && loopState === 2) {
             let now = player.getCurrentTime();
             let total = player.getDuration();
-            if (total > 0 && (total - now) < 1.2) {
+            if (total > 0 && (total - now) < 1.3) {
                 player.seekTo(0);
                 player.playVideo();
             }
         }
-    }, 500);
+    }, 500); // Her yarım saniyede bir kontrol et
 }
 
-// 3. HATA YÖNETİMİ (Engelli Videoları Atla)
+// 3. HATA YÖNETİMİ
 function onPlayerError(e) {
-    const errorMsg = "Video oynatılamıyor, atlanıyor...";
-    document.getElementById('status').innerText = errorMsg;
+    document.getElementById('status').innerText = "Video engelli, atlanıyor...";
     setTimeout(() => {
         skipDirection === 1 ? player.nextVideo() : player.previousVideo();
     }, 800);
 }
 
-// 4. MEDYA YÜKLEME (No-Cookie Modu Aktif)
+// 4. MEDYA YÜKLEME (No-Cookie Zorlaması)
 function loadMedia() {
     const inp = document.getElementById('yt-link');
-    const rawLink = inp.value.trim();
+    let rawLink = inp.value.trim();
     if (!rawLink) return;
 
-    // Reklam takibini zorlaştırmak için linki modifiye et
-    const cleanLink = rawLink.replace("music.youtube.com", "www.youtube-nocookie.com")
-                             .replace("www.youtube.com", "www.youtube-nocookie.com");
+    // Reklamları zorlaştırmak için Linki Embed/No-Cookie formatına yaklaştır
+    let cleanLink = rawLink.replace("music.youtube.com", "www.youtube-nocookie.com")
+                           .replace("www.youtube.com", "www.youtube-nocookie.com");
     
     const url = new URL(cleanLink);
     const listId = url.searchParams.get("list");
@@ -92,25 +105,20 @@ function loadMedia() {
         isPlaylist = true; 
         currentListId = listId;
         let cache = JSON.parse(localStorage.getItem('muartCache') || "{}");
-        let finalTitle = "Liste: " + listId;
         let history = JSON.parse(localStorage.getItem('muartHistory') || "[]");
         let existing = history.find(i => i.link.includes(listId));
         
-        if (existing) finalTitle = existing.title;
-        else { 
-            let ut = prompt("Playlist'e bir isim ver:", "Yeni Liste"); 
-            if (ut) finalTitle = ut; 
-        }
+        let finalTitle = existing ? existing.title : (prompt("Liste İsmi:", "Yeni Liste") || "Yeni Liste");
         
         player.loadPlaylist({ listType: 'playlist', list: listId, index: 0 });
-        saveToHistory(rawLink, finalTitle); // Orijinal linki kaydet
+        saveToHistory(rawLink, finalTitle);
 
         if (cache[listId]) {
             playlistTitles = cache[listId];
             setTimeout(updateQueueUI, 1000);
         } else { 
             isScanning = true; 
-            player.mute(); 
+            player.setVolume(0); 
             document.getElementById('status').innerText = "Liste taranıyor...";
         }
     } else if (videoId) {
@@ -137,7 +145,8 @@ function onPlayerStateChange(e) {
                     cache[currentListId] = playlistTitles;
                     localStorage.setItem('muartCache', JSON.stringify(cache));
                     isScanning = false; 
-                    player.unMute(); 
+                    let vol = document.getElementById('volume-slider').value;
+                    player.setVolume(vol);
                     player.playVideoAt(0);
                     document.getElementById('status').innerText = "Sistem Hazır.";
                 }
@@ -151,11 +160,11 @@ function onPlayerStateChange(e) {
     }
 }
 
-// 6. LİSTE ARAYÜZÜNÜ GÜNCELLE
+// 6. LİSTE ARAYÜZÜ
 function updateQueueUI() {
     const div = document.getElementById('queue-list');
     if (!isPlaylist) { 
-        div.innerHTML = "<p style='color:#666; text-align:center;'>Tekli parça modundasın.</p>"; 
+        div.innerHTML = "<p style='color:#666; text-align:center;'>Tekli parça modu.</p>"; 
         return; 
     }
     const ids = player.getPlaylist(), cur = player.getPlaylistIndex();
@@ -164,25 +173,21 @@ function updateQueueUI() {
         ids.forEach((id, idx) => {
             const item = document.createElement('div');
             item.className = `queue-item ${idx === cur ? 'active' : ''}`;
-            item.innerText = playlistTitles[id] || "Şarkı " + (idx + 1);
-            item.onclick = () => { isScanning = false; player.unMute(); player.playVideoAt(idx); };
+            item.innerText = playlistTitles[id] || "Yükleniyor...";
+            item.onclick = () => { isScanning = false; player.playVideoAt(idx); };
             div.appendChild(item);
         });
     }
 }
 
-// 7. KONTROL FONKSİYONLARI
+// 7. DİĞER KONTROLLER
 function toggleLoop() {
     loopState = (loopState + 1) % 3;
     const btn = document.getElementById('loop-btn');
-    const config = [
-        { text: "DÖNGÜ: KAPALI", color: "#fff" },
-        { text: "DÖNGÜ: LİSTE", color: "#ff0000" },
-        { text: "DÖNGÜ: TEKLİ", color: "#00ff00" }
-    ];
-    btn.innerText = config[loopState].text;
-    btn.style.color = config[loopState].color;
-    btn.style.borderColor = config[loopState].color;
+    const cfg = [ {t:"KAPALI", c:"#fff"}, {t:"LİSTE", c:"#ff0000"}, {t:"TEKLİ", c:"#00ff00"} ];
+    btn.innerText = "DÖNGÜ: " + cfg[loopState].t;
+    btn.style.color = cfg[loopState].c;
+    btn.style.borderColor = cfg[loopState].c;
     if (player.setLoop) player.setLoop(loopState === 1);
 }
 
@@ -190,9 +195,7 @@ function toggleShuffle() {
     if (!isPlaylist) return;
     isShuffled = !isShuffled;
     player.setShuffle(isShuffled);
-    const btn = document.getElementById('shuffle-btn');
-    btn.style.color = isShuffled ? "#ff0000" : "#fff";
-    btn.style.borderColor = isShuffled ? "#ff0000" : "#fff";
+    document.getElementById('shuffle-btn').style.color = isShuffled ? "#ff0000" : "#fff";
 }
 
 function changeVolume(v) { if (player && player.setVolume) player.setVolume(v); }
@@ -200,7 +203,7 @@ function togglePlay() { player.getPlayerState() == 1 ? player.pauseVideo() : pla
 function nextTrack() { skipDirection = 1; player.nextVideo(); }
 function prevTrack() { skipDirection = -1; player.previousVideo(); }
 
-// 8. GEÇMİŞ YÖNETİMİ
+// 8. GEÇMİŞ
 function saveToHistory(l, t) {
     let h = JSON.parse(localStorage.getItem('muartHistory') || "[]");
     if (h.some(i => i.link === l)) return;
@@ -218,17 +221,14 @@ function updateHistoryUI() {
     h.forEach(i => {
         const item = document.createElement('div');
         item.className = 'history-item';
-        item.innerHTML = `
-            <span class="history-text">>> ${i.title}</span>
-            <button class="del-btn" onclick="event.stopPropagation(); deleteHistoryItem('${i.link}')">X</button>
-        `;
-        item.onclick = () => { document.getElementById('yt-link').value = i.link; loadMedia(); };
+        item.innerHTML = `<span class="history-text">>> ${i.title}</span><button class="del-btn">X</button>`;
+        item.querySelector('.history-text').onclick = () => { document.getElementById('yt-link').value = i.link; loadMedia(); };
+        item.querySelector('.del-btn').onclick = (e) => {
+            e.stopPropagation();
+            let newH = JSON.parse(localStorage.getItem('muartHistory')).filter(x => x.link !== i.link);
+            localStorage.setItem('muartHistory', JSON.stringify(newH));
+            updateHistoryUI();
+        };
         hl.appendChild(item);
     });
-}
-
-function deleteHistoryItem(l) {
-    let h = JSON.parse(localStorage.getItem('muartHistory') || "[]");
-    localStorage.setItem('muartHistory', JSON.stringify(h.filter(i => i.link !== l)));
-    updateHistoryUI();
 }
