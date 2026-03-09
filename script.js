@@ -1,96 +1,89 @@
 let player;
-let queue = [];
-let currentIndex = -1;
+let isPlaylist = false;
 
-// YouTube API hazır olduğunda çalışır
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('main-player', {
         height: '100%',
         width: '100%',
-        playerVars: { 'autoplay': 1, 'controls': 1 },
+        playerVars: { 'autoplay': 1, 'controls': 1, 'rel': 0 },
         events: {
+            'onReady': onPlayerReady,
             'onStateChange': onPlayerStateChange
         }
     });
 }
 
-function onPlayerStateChange(event) {
-    if (event.data == YT.PlayerState.ENDED) {
-        nextTrack(); // Şarkı bitince sonrakine geç
-    }
+function onPlayerReady(event) {
+    document.getElementById('status').innerText = "Oynatıcı hazır.";
 }
 
-async function addToQueue() {
-    const linkInput = document.getElementById('yt-link');
-    const link = linkInput.value.trim();
+function loadMedia() {
+    const link = document.getElementById('yt-link').value.trim();
     if (!link) return;
 
-    const urlObj = new URL(link.replace("music.", "www."));
-    const videoId = urlObj.searchParams.get("v") || urlObj.pathname.slice(1);
-    
-    let title = prompt("Şarkı İsmi:", "Yeni Şarkı") || "Bilinmeyen Şarkı";
+    const url = new URL(link.replace("music.", "www."));
+    const listId = url.searchParams.get("list");
+    const videoId = url.searchParams.get("v");
 
-    queue.push({ id: videoId, title: title });
-    linkInput.value = "";
-    
-    updateQueueUI();
-    
-    if (currentIndex === -1) {
-        playTrack(0); // İlk şarkıysa hemen başlat
+    if (listId) {
+        // LİSTE YÜKLEME
+        isPlaylist = true;
+        player.loadPlaylist({
+            listType: 'playlist',
+            list: listId,
+            index: 0,
+            suggestedQuality: 'default'
+        });
+        document.getElementById('status').innerText = "Liste yükleniyor...";
+    } else if (videoId) {
+        // TEK ŞARKI YÜKLEME
+        isPlaylist = false;
+        player.loadVideoById(videoId);
+        document.getElementById('status').innerText = "Şarkı yükleniyor...";
     }
 }
 
-function playTrack(index) {
-    if (index >= 0 && index < queue.length) {
-        currentIndex = index;
-        player.loadVideoById(queue[currentIndex].id);
-        document.getElementById('status').innerText = "Çalıyor: " + queue[currentIndex].title;
+function onPlayerStateChange(event) {
+    // Şarkı başladığında yan listeyi güncelle
+    if (event.data == YT.PlayerState.PLAYING) {
+        document.getElementById('play-pause-btn').innerText = "DURDUR";
         updateQueueUI();
     }
 }
 
 function togglePlay() {
     const state = player.getPlayerState();
-    const btn = document.getElementById('play-pause-btn');
-    if (state == 1) { // 1 = Çalıyor
+    if (state == 1) {
         player.pauseVideo();
-        btn.innerText = "DEVAM ET";
+        document.getElementById('play-pause-btn').innerText = "DEVAM ET";
     } else {
         player.playVideo();
-        btn.innerText = "DURDUR";
+        document.getElementById('play-pause-btn').innerText = "DURDUR";
     }
 }
 
-function nextTrack() {
-    if (currentIndex < queue.length - 1) {
-        playTrack(currentIndex + 1);
-    }
-}
-
-function prevTrack() {
-    if (currentIndex > 0) {
-        playTrack(currentIndex - 1);
-    }
-}
+function nextTrack() { player.nextVideo(); }
+function prevTrack() { player.previousVideo(); }
 
 function updateQueueUI() {
     const listDiv = document.getElementById('queue-list');
-    listDiv.innerHTML = "";
-    queue.forEach((item, index) => {
-        const div = document.createElement('div');
-        div.className = `queue-item ${index === currentIndex ? 'active' : ''}`;
-        div.innerText = `${index + 1}. ${item.title}`;
-        div.onclick = () => playTrack(index);
-        listDiv.appendChild(div);
-    });
-}
+    if (!isPlaylist) {
+        listDiv.innerHTML = "<p>Şu an tek bir şarkı çalıyor.</p>";
+        return;
+    }
 
-function clearQueue() {
-    if (confirm("Liste temizlensin mi?")) {
-        queue = [];
-        currentIndex = -1;
-        player.stopVideo();
-        updateQueueUI();
-        document.getElementById('status').innerText = "Liste temizlendi.";
+    // YouTube'un içindeki listeyi çekiyoruz
+    const playlistIds = player.getPlaylist();
+    const currentIndex = player.getPlaylistIndex();
+    
+    if (playlistIds) {
+        listDiv.innerHTML = "";
+        playlistIds.forEach((id, index) => {
+            const div = document.createElement('div');
+            div.className = `queue-item ${index === currentIndex ? 'active' : ''}`;
+            div.innerText = `${index + 1}. Şarkı (ID: ${id})`;
+            div.onclick = () => player.playVideoAt(index);
+            listDiv.appendChild(div);
+        });
     }
 }
