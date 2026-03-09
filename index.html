@@ -24,6 +24,7 @@
 
             <div class="extra-controls">
                 <button onclick="toggleLoop()" id="loop-btn" class="small-btn">DÖNGÜ: KAPALI</button>
+                <button onclick="toggleShuffle()" id="shuffle-btn" class="small-btn">KARIŞTIR</button>
                 <div class="volume-container">
                     <span>SES:</span>
                     <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)">
@@ -40,16 +41,16 @@
 
             <div id="history-section">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 30px; margin-bottom: 10px;">
-                    <h3 style="margin: 0; color: #fff; font-size: 1.2rem;">GEÇMİŞ</h3>
+                    <h3 style="margin: 0; color: #fff; font-size: 1.5rem;">GEÇMİŞ</h3>
                 </div>
                 <div id="history-list"></div>
             </div>
         </div>
 
         <div class="queue-section">
-            <h3>SIRADAKİ LİSTE</h3>
+            <h3 style="font-size: 1.8rem; text-align: center;">SIRADAKİ LİSTE</h3>
             <div id="queue-list">
-                <p style="color: #666; font-size: 0.9rem;">Playlist bekleniyor...</p>
+                <p style="color: #666; font-size: 1.2rem; text-align: center;">Playlist bekleniyor...</p>
             </div>
         </div>
     </div>
