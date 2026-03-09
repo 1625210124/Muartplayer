@@ -10,13 +10,33 @@ function onYouTubeIframeAPIReady() {
         playerVars: { 'autoplay': 1, 'controls': 1, 'rel': 0 },
         events: {
             'onReady': onPlayerReady,
-            'onStateChange': onPlayerStateChange
+            'onStateChange': onPlayerStateChange,
+            'onError': onPlayerError // Hata yakalayıcı eklendi
         }
     });
 }
 
 function onPlayerReady(event) {
     updateHistoryUI();
+}
+
+// VIDEO OYNATILAMIYORSA BURASI ÇALIŞIR
+function onPlayerError(event) {
+    console.log("Hata yakalandı, kod:", event.data);
+    
+    // 101 veya 150: Video sahibi yerleştirmeye izin vermiyor demektir
+    if (event.data == 101 || event.data == 150 || event.data == 2) {
+        document.getElementById('status').innerText = "Video engelli, atlanıyor...";
+        
+        // Yarım saniye bekle ve sonrakine geç
+        setTimeout(() => {
+            if (isPlaylist) {
+                nextTrack();
+            } else {
+                document.getElementById('status').innerText = "Bu video oynatılamıyor.";
+            }
+        }, 500);
+    }
 }
 
 function loadMedia() {
@@ -43,10 +63,10 @@ function loadMedia() {
             index: 0
         });
         saveToHistory(link, finalTitle);
-        // Tarama modunu başlat
+        
         isScanning = true;
         player.mute(); 
-        document.getElementById('status').innerText = "Liste taranıyor, lütfen bekleyin...";
+        document.getElementById('status').innerText = "Liste taranıyor...";
     } else if (videoId) {
         player.loadVideoById(videoId);
     }
@@ -59,26 +79,22 @@ function onPlayerStateChange(event) {
         let currentTitle = videoData.title;
         let currentId = videoData.video_id;
 
-        // İsmi hafızaya al
         playlistTitles[currentId] = currentTitle;
         updateQueueUI();
 
         if (isScanning) {
-            // Tarama modundaysak bir sonrakine atla
             const currentIndex = player.getPlaylistIndex();
             const playlistLength = player.getPlaylist().length;
 
             if (currentIndex < playlistLength - 1) {
-                setTimeout(() => player.nextVideo(), 800); // 800ms bekleyip geç
+                setTimeout(() => player.nextVideo(), 800); 
             } else {
-                // Tarama bitti
                 isScanning = false;
                 player.unMute();
-                player.playVideoAt(0); // İlk şarkıya dön ve başlat
-                document.getElementById('status').innerText = "Tarama tamamlandı. Keyifli dinlemeler!";
+                player.playVideoAt(0);
+                document.getElementById('status').innerText = "Tarama bitti, keyifli dinlemeler!";
             }
         } else {
-            // Normal mod
             document.getElementById('play-pause-btn').innerHTML = "|| DURDUR";
             document.getElementById('status').innerText = "Çalınıyor: " + currentTitle;
             if (!isPlaylist) {
@@ -109,7 +125,7 @@ function updateQueueUI() {
             let displayTitle = playlistTitles[id] || "Şarkı " + (index + 1) + " (Taranıyor...)";
             div.innerText = displayTitle;
             div.onclick = () => {
-                isScanning = false; // Tıklanırsa taramayı boz
+                isScanning = false;
                 player.unMute();
                 player.playVideoAt(index);
             };
@@ -118,7 +134,7 @@ function updateQueueUI() {
     }
 }
 
-// Hafıza ve Kontrol Fonksiyonları (V9)
+// Hafıza sisteminde hata linkInput'u düzeltildi
 function saveToHistory(link, title) {
     let history = JSON.parse(localStorage.getItem('muartHistoryV9') || "[]");
     if (history.some(item => item.link === link)) return; 
@@ -136,6 +152,7 @@ function updateHistoryUI() {
     history.forEach(item => {
         const div = document.createElement('div');
         div.className = 'history-item';
+        div.style.cssText = "padding: 8px; border-bottom: 1px solid #111; cursor: pointer; color: #666;";
         div.innerText = ">> " + item.title;
         div.onclick = () => {
             document.getElementById('yt-link').value = item.link;
