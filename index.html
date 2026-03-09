@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Muart Player PRO v4</title>
+    <title>MuartPlayer</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <script src="https://www.youtube.com/iframe_api"></script>
@@ -11,7 +11,7 @@
 <body>
     <div class="main-wrapper">
         <div class="player-section">
-            <h1>MUART PLAYER PRO</h1>
+            <h1>MuartPlayer</h1>
             
             <div class="input-group">
                 <input type="text" id="yt-link" placeholder="Playlist veya Şarkı linki...">
@@ -20,6 +20,14 @@
 
             <div id="player-container">
                 <div id="main-player"></div>
+            </div>
+
+            <div class="extra-controls">
+                <button onclick="toggleLoop()" id="loop-btn" class="small-btn">DÖNGÜ: KAPALI</button>
+                <div class="volume-container">
+                    <span>SES:</span>
+                    <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)">
+                </div>
             </div>
 
             <div class="controls">
@@ -32,17 +40,16 @@
 
             <div id="history-section">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 30px; margin-bottom: 10px;">
-                    <h3 style="margin: 0; color: #888; font-size: 1.2rem;">GEÇMİŞ (V9)</h3>
-                    <button onclick="clearHistory()" class="clear-btn">TEMİZLE</button>
+                    <h3 style="margin: 0; color: #fff; font-size: 1.2rem;">GEÇMİŞ</h3>
                 </div>
                 <div id="history-list"></div>
             </div>
         </div>
 
         <div class="queue-section">
-            <h3 id="queue-header">SIRADAKİ LİSTE</h3>
+            <h3>SIRADAKİ LİSTE</h3>
             <div id="queue-list">
-                <p style="color: #444; font-size: 0.9rem;">Playlist yüklenince burada belirecek...</p>
+                <p style="color: #666; font-size: 0.9rem;">Playlist bekleniyor...</p>
             </div>
         </div>
     </div>
