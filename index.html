@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Muart Player PRO</title>
+    <title>Muart Player PRO v2</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <script src="https://www.youtube.com/iframe_api"></script>
@@ -14,26 +14,28 @@
             <h1>MUART PLAYER PRO</h1>
             
             <div class="input-group">
-                <input type="text" id="yt-link" placeholder="YouTube linkini yapıştır...">
-                <button onclick="addToQueue()">EKLE</button>
+                <input type="text" id="yt-link" placeholder="YouTube Playlist veya Şarkı linki...">
+                <button onclick="loadMedia()">YÜKLE</button>
             </div>
 
             <div id="player-container">
-                <div id="main-player"></div> </div>
+                <div id="main-player"></div>
+            </div>
 
             <div class="controls">
-                <button onclick="prevTrack()">❮ GERİ</button>
-                <button onclick="togglePlay()" id="play-pause-btn">DURDUR</button>
-                <button onclick="nextTrack()">İLERİ ❯</button>
+                <button onclick="prevTrack()" class="ctrl-btn">❮ GERİ</button>
+                <button onclick="togglePlay()" id="play-pause-btn" class="ctrl-btn">DURDUR</button>
+                <button onclick="nextTrack()" class="ctrl-btn">İLERİ ❯</button>
             </div>
             
-            <p id="status">Ruhun ses bekliyor...</p>
+            <p id="status">Sistem hazır, playlist bekleniyor...</p>
         </div>
 
         <div class="queue-section">
-            <h3>SIRADAKİ ŞARKILAR</h3>
-            <div id="queue-list"></div>
-            <button onclick="clearQueue()" class="clear-btn">LİSTEYİ TEMİZLE</button>
+            <h3 id="queue-title">SIRADAKİ LİSTE</h3>
+            <div id="queue-list">
+                <p style="color: #444; font-size: 0.9rem;">Bir playlist yüklediğinde şarkılar burada (ID olarak) belirecek...</p>
+            </div>
         </div>
     </div>
     <script src="script.js"></script>
