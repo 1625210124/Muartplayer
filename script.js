@@ -8,25 +8,17 @@ async function playMusic(manualLink = null) {
 
     if (!link) return;
 
-    // Hata önleyici: Her yeni aramada içeriği sıfırla
+    // Önceki oynatıcıyı ve hataları temizle
     container.innerHTML = "";
-    status.innerText = "Yükleniyor...";
+    status.innerText = "Bağlantı kuruluyor...";
 
     try {
-        // Linki temizle ve analiz et
         let cleanLink = link.replace("music.youtube.com", "www.youtube.com");
-        let urlObj;
-        
-        try {
-            urlObj = new URL(cleanLink);
-        } catch (e) {
-            status.innerText = "Geçersiz link formatı!";
-            return;
-        }
-
+        let urlObj = new URL(cleanLink);
         let embedUrl = "";
         let idForFallback = "";
 
+        // Link tipini belirle
         if (urlObj.searchParams.has("list")) {
             const listId = urlObj.searchParams.get("list");
             idForFallback = listId;
@@ -37,49 +29,48 @@ async function playMusic(manualLink = null) {
             embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
         }
 
-        // İsim Çekme Operasyonu
+        // --- MANUEL İSİM SORGUSU ---
         let finalTitle = "";
-        try {
-            const response = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(cleanLink)}`);
-            const data = await response.json();
-            finalTitle = data.title || "Müzik: " + idForFallback;
-        } catch (e) {
-            finalTitle = "Kayıt: " + idForFallback;
+        if (!manualLink) {
+            // Sadece yeni link eklerken sorar, geçmişten tıklarken sormaz
+            let userTitle = prompt("Bu şarkı/liste için bir isim gir (Geçmişte böyle görünecek):", "Yeni Kayıt");
+            finalTitle = userTitle || ("Kayıt: " + idForFallback);
         }
 
-        // Oynatıcıyı bas
-        status.innerText = "Çalınıyor: " + finalTitle;
+        // Oynatıcıyı yükle
         container.innerHTML = `
             <iframe src="${embedUrl}" width="100%" height="250px" frameborder="0" 
             allow="autoplay; encrypted-media" allowfullscreen 
             style="border: 2px solid #ff0000; border-radius: 10px; background: #000;"></iframe>
         `;
+        
+        if (finalTitle) status.innerText = "Çalınıyor: " + finalTitle;
 
+        // Geçmişe kaydet
         if (!manualLink) {
             saveToHistory(link, finalTitle);
             linkInput.value = "";
         }
 
     } catch (err) {
-        status.innerText = "Sistem hatası! Sayfayı yenileyin.";
+        status.innerText = "Hata! Geçersiz bir link girdin.";
         console.error(err);
     }
 }
 
 function saveToHistory(link, title) {
-    let history = JSON.parse(localStorage.getItem('muartHistoryV5') || "[]");
-    // Aynı link varsa sil ki en başa gelsin
+    let history = JSON.parse(localStorage.getItem('muartHistoryV6') || "[]");
     history = history.filter(item => item.link !== link);
     history.unshift({ link: link, title: title });
-    if (history.length > 15) history.pop();
-    localStorage.setItem('muartHistoryV5', JSON.stringify(history));
+    if (history.length > 20) history.pop();
+    localStorage.setItem('muartHistoryV6', JSON.stringify(history));
     updateHistoryUI();
 }
 
 function updateHistoryUI() {
     const historyList = document.getElementById('history-list');
     if (!historyList) return;
-    let history = JSON.parse(localStorage.getItem('muartHistoryV5') || "[]");
+    let history = JSON.parse(localStorage.getItem('muartHistoryV6') || "[]");
     historyList.innerHTML = "";
     history.forEach(item => {
         const div = document.createElement('div');
@@ -92,7 +83,7 @@ function updateHistoryUI() {
 
 function clearHistory() {
     if (confirm("Tüm geçmiş silinsin mi?")) {
-        localStorage.removeItem('muartHistoryV5');
+        localStorage.removeItem('muartHistoryV6');
         updateHistoryUI();
     }
 }
