@@ -49,7 +49,7 @@ function loadMedia() {
     isScanning = false;
     playlistTitles = {}; 
     skipDirection = 1;
-    isShuffled = false; // Yeni liste açılınca karıştırma sıfırlansın
+    isShuffled = false;
     document.getElementById('shuffle-btn').style.color = "#fff";
     document.getElementById('shuffle-btn').style.borderColor = "#fff";
 
@@ -116,14 +116,15 @@ function onPlayerStateChange(event) {
             document.getElementById('status').innerText = "Çalınıyor: " + currentTitle;
             if (!isPlaylist) saveToHistory("https://www.youtube.com/watch?v=" + currentId, currentTitle);
         }
-    } else if (event.data == YT.PlayerState.PAUSED && !isScanning) {
-        document.getElementById('play-pause-btn').innerHTML = "> OYNAT";
-    } else if (event.data == YT.PlayerState.ENDED) {
-        // Tekli şarkı döngüsü açıksa başa sarıp tekrar çal
+    } 
+    else if (event.data == YT.PlayerState.ENDED) {
         if (loopState === 2) {
             player.seekTo(0);
             player.playVideo();
         }
+    }
+    else if (event.data == YT.PlayerState.PAUSED && !isScanning) {
+        document.getElementById('play-pause-btn').innerHTML = "> OYNAT";
     }
 }
 
@@ -142,7 +143,6 @@ function updateQueueUI() {
         playlistIds.forEach((id, index) => {
             const div = document.createElement('div');
             div.className = `queue-item ${index === currentIndex ? 'active' : ''}`;
-            
             let displayTitle = playlistTitles[id] || "Şarkı " + (index + 1) + " (Bekleniyor...)";
             div.innerText = displayTitle;
             div.onclick = () => {
@@ -155,44 +155,34 @@ function updateQueueUI() {
     }
 }
 
-// Yeni Karıştır (Shuffle) Modu
 function toggleShuffle() {
     if (!isPlaylist) return;
     isShuffled = !isShuffled;
     player.setShuffle(isShuffled);
-    
     const btn = document.getElementById('shuffle-btn');
-    if (isShuffled) {
-        btn.style.color = "#ff0000";
-        btn.style.borderColor = "#ff0000";
-    } else {
-        btn.style.color = "#fff";
-        btn.style.borderColor = "#fff";
-    }
-    // YouTube'un listeyi karıştırması için kısa bir süre bekleyip UI'yi güncelliyoruz
+    btn.style.color = isShuffled ? "#ff0000" : "#fff";
+    btn.style.borderColor = isShuffled ? "#ff0000" : "#fff";
     setTimeout(updateQueueUI, 500);
 }
 
-// 3 Aşamalı Döngü Sistemi
 function toggleLoop() {
-    loopState = (loopState + 1) % 3; // 0, 1, 2 arasında döner
+    loopState = (loopState + 1) % 3;
     const btn = document.getElementById('loop-btn');
-    
     if (loopState === 0) {
         btn.innerText = "DÖNGÜ: KAPALI";
         btn.style.color = "#fff";
         btn.style.borderColor = "#fff";
-        if (isPlaylist) player.setLoop(false);
+        if (player.setLoop) player.setLoop(false);
     } else if (loopState === 1) {
         btn.innerText = "DÖNGÜ: LİSTE";
         btn.style.color = "#ff0000";
         btn.style.borderColor = "#ff0000";
-        if (isPlaylist) player.setLoop(true);
+        if (player.setLoop) player.setLoop(true);
     } else if (loopState === 2) {
         btn.innerText = "DÖNGÜ: TEKLİ";
-        btn.style.color = "#00ff00"; // Tekli döngü yeşil renk olsun ki belli olsun
+        btn.style.color = "#00ff00";
         btn.style.borderColor = "#00ff00";
-        if (isPlaylist) player.setLoop(false); // API loop'unu kapatıp ENDED event'i ile biz hallediyoruz
+        if (player.setLoop) player.setLoop(false);
     }
 }
 
@@ -201,7 +191,6 @@ function togglePlay() { player.getPlayerState() == 1 ? player.pauseVideo() : pla
 function nextTrack() { skipDirection = 1; player.nextVideo(); }
 function prevTrack() { skipDirection = -1; player.previousVideo(); }
 
-// Geçmiş Fonksiyonları
 function saveToHistory(link, title) {
     let history = JSON.parse(localStorage.getItem('muartHistory') || "[]");
     if (history.some(item => item.link === link)) return; 
@@ -219,7 +208,6 @@ function updateHistoryUI() {
     history.forEach(item => {
         const div = document.createElement('div');
         div.className = 'history-item';
-        
         const textSpan = document.createElement('span');
         textSpan.className = 'history-text';
         textSpan.innerText = ">> " + item.title;
@@ -227,12 +215,13 @@ function updateHistoryUI() {
             document.getElementById('yt-link').value = item.link;
             loadMedia();
         };
-
         const delBtn = document.createElement('button');
         delBtn.className = 'del-btn';
         delBtn.innerText = "X";
-        delBtn.onclick = () => deleteHistoryItem(item.link);
-
+        delBtn.onclick = (e) => {
+            e.stopPropagation();
+            deleteHistoryItem(item.link);
+        };
         div.appendChild(textSpan);
         div.appendChild(delBtn);
         historyList.appendChild(div);
