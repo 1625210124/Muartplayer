@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Muart Player PRO v2</title>
+    <title>Muart Player PRO v3</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <script src="https://www.youtube.com/iframe_api"></script>
@@ -15,20 +15,27 @@
             
             <div class="input-group">
                 <input type="text" id="yt-link" placeholder="YouTube Playlist veya Şarkı linki...">
-                <button onclick="loadMedia()">YÜKLE</button>
+                <button onclick="loadMedia()" class="load-btn">YÜKLE</button>
             </div>
 
             <div id="player-container">
-                <div id="main-player"></div>
-            </div>
+                <div id="main-player"></div> </div>
 
             <div class="controls">
-                <button onclick="prevTrack()" class="ctrl-btn">❮ GERİ</button>
-                <button onclick="togglePlay()" id="play-pause-btn" class="ctrl-btn">DURDUR</button>
-                <button onclick="nextTrack()" class="ctrl-btn">İLERİ ❯</button>
+                <button onclick="prevTrack()" class="ctrl-btn">&#x23EA; GERİ</button>
+                <button onclick="togglePlay()" id="play-pause-btn" class="ctrl-btn">&#x23F8; DURDUR</button>
+                <button onclick="nextTrack()" class="ctrl-btn">İLERİ &#x23E9;</button>
             </div>
             
-            <p id="status">Sistem hazır, playlist bekleniyor...</p>
+            <p id="status">Ruhun ses bekliyor...</p>
+
+            <div id="history-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 30px; margin-bottom: 10px;">
+                    <h3 style="margin: 0; color: #888; font-size: 1.2rem;">GEÇMİŞ HAFIZASI (V7)</h3>
+                    <button onclick="clearHistory()" class="clear-btn">LİSTEYİ SİL</button>
+                </div>
+                <div id="history-list"></div>
+            </div>
         </div>
 
         <div class="queue-section">
