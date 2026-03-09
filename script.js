@@ -3,8 +3,10 @@ let isPlaylist = false;
 let isScanning = false;
 let playlistTitles = {}; 
 let currentListId = "";
-let skipDirection = 1; // 1 = İleri, -1 = Geri
-let isLooping = false;
+let skipDirection = 1; 
+
+let loopState = 0; // 0: Kapalı, 1: Liste, 2: Tekli
+let isShuffled = false;
 
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('main-player', {
@@ -28,11 +30,8 @@ function onPlayerError(event) {
     if (event.data == 101 || event.data == 150 || event.data == 2) {
         document.getElementById('status').innerText = "Video engelli, atlanıyor...";
         setTimeout(() => {
-            if (skipDirection === 1) {
-                player.nextVideo();
-            } else {
-                player.previousVideo();
-            }
+            if (skipDirection === 1) player.nextVideo();
+            else player.previousVideo();
         }, 500);
     }
 }
@@ -50,43 +49,37 @@ function loadMedia() {
     isScanning = false;
     playlistTitles = {}; 
     skipDirection = 1;
+    isShuffled = false; // Yeni liste açılınca karıştırma sıfırlansın
+    document.getElementById('shuffle-btn').style.color = "#fff";
+    document.getElementById('shuffle-btn').style.borderColor = "#fff";
 
     if (listId) {
         isPlaylist = true;
         currentListId = listId;
         
-        // Önbellek (Cache) Kontrolü
         let cache = JSON.parse(localStorage.getItem('muartCache') || "{}");
-        
         let finalTitle = "Liste: " + listId;
         let history = JSON.parse(localStorage.getItem('muartHistory') || "[]");
         let existingItem = history.find(item => item.link.includes(listId));
-        if (existingItem) {
-            finalTitle = existingItem.title;
-        } else {
+        
+        if (existingItem) finalTitle = existingItem.title;
+        else {
             let userTitle = prompt("Liste İsmi:", "Yeni Playlist");
             if (userTitle) finalTitle = userTitle;
         }
 
-        player.loadPlaylist({
-            listType: 'playlist',
-            list: listId,
-            index: 0
-        });
+        player.loadPlaylist({ listType: 'playlist', list: listId, index: 0 });
         saveToHistory(link, finalTitle);
 
         if (cache[listId]) {
-            // Daha önce taranmış, hafızadan çek
             playlistTitles = cache[listId];
             document.getElementById('status').innerText = "Hafızadan yüklendi!";
             setTimeout(updateQueueUI, 1000); 
         } else {
-            // İlk defa açılıyor, tara
             isScanning = true;
             player.mute(); 
             document.getElementById('status').innerText = "Liste taranıyor...";
         }
-        
     } else if (videoId) {
         player.loadVideoById(videoId);
     }
@@ -109,7 +102,6 @@ function onPlayerStateChange(event) {
             if (currentIndex < playlistLength - 1) {
                 setTimeout(() => player.nextVideo(), 800); 
             } else {
-                // Tarama bitti, önbelleğe kaydet
                 let cache = JSON.parse(localStorage.getItem('muartCache') || "{}");
                 cache[currentListId] = playlistTitles;
                 localStorage.setItem('muartCache', JSON.stringify(cache));
@@ -122,15 +114,14 @@ function onPlayerStateChange(event) {
         } else {
             document.getElementById('play-pause-btn').innerHTML = "|| DURDUR";
             document.getElementById('status').innerText = "Çalınıyor: " + currentTitle;
-            if (!isPlaylist) {
-                saveToHistory("https://www.youtube.com/watch?v=" + currentId, currentTitle);
-            }
+            if (!isPlaylist) saveToHistory("https://www.youtube.com/watch?v=" + currentId, currentTitle);
         }
     } else if (event.data == YT.PlayerState.PAUSED && !isScanning) {
         document.getElementById('play-pause-btn').innerHTML = "> OYNAT";
     } else if (event.data == YT.PlayerState.ENDED) {
-        // Tekli şarkıda döngü açıksa başa sar
-        if (!isPlaylist && isLooping) {
+        // Tekli şarkı döngüsü açıksa başa sarıp tekrar çal
+        if (loopState === 2) {
+            player.seekTo(0);
             player.playVideo();
         }
     }
@@ -139,7 +130,7 @@ function onPlayerStateChange(event) {
 function updateQueueUI() {
     const listDiv = document.getElementById('queue-list');
     if (!isPlaylist) {
-        listDiv.innerHTML = "<p style='color: #888;'>Tekli parça modu.</p>";
+        listDiv.innerHTML = "<p style='color: #888; text-align: center;'>Tekli parça modu.</p>";
         return;
     }
 
@@ -164,33 +155,53 @@ function updateQueueUI() {
     }
 }
 
-// Ses ve Döngü Kontrolleri
-function changeVolume(val) {
-    if (player && player.setVolume) player.setVolume(val);
-}
-
-function toggleLoop() {
-    isLooping = !isLooping;
-    const btn = document.getElementById('loop-btn');
-    if (isLooping) {
-        btn.innerText = "DÖNGÜ: AÇIK";
+// Yeni Karıştır (Shuffle) Modu
+function toggleShuffle() {
+    if (!isPlaylist) return;
+    isShuffled = !isShuffled;
+    player.setShuffle(isShuffled);
+    
+    const btn = document.getElementById('shuffle-btn');
+    if (isShuffled) {
         btn.style.color = "#ff0000";
         btn.style.borderColor = "#ff0000";
-        if (isPlaylist) player.setLoop(true);
     } else {
+        btn.style.color = "#fff";
+        btn.style.borderColor = "#fff";
+    }
+    // YouTube'un listeyi karıştırması için kısa bir süre bekleyip UI'yi güncelliyoruz
+    setTimeout(updateQueueUI, 500);
+}
+
+// 3 Aşamalı Döngü Sistemi
+function toggleLoop() {
+    loopState = (loopState + 1) % 3; // 0, 1, 2 arasında döner
+    const btn = document.getElementById('loop-btn');
+    
+    if (loopState === 0) {
         btn.innerText = "DÖNGÜ: KAPALI";
         btn.style.color = "#fff";
         btn.style.borderColor = "#fff";
         if (isPlaylist) player.setLoop(false);
+    } else if (loopState === 1) {
+        btn.innerText = "DÖNGÜ: LİSTE";
+        btn.style.color = "#ff0000";
+        btn.style.borderColor = "#ff0000";
+        if (isPlaylist) player.setLoop(true);
+    } else if (loopState === 2) {
+        btn.innerText = "DÖNGÜ: TEKLİ";
+        btn.style.color = "#00ff00"; // Tekli döngü yeşil renk olsun ki belli olsun
+        btn.style.borderColor = "#00ff00";
+        if (isPlaylist) player.setLoop(false); // API loop'unu kapatıp ENDED event'i ile biz hallediyoruz
     }
 }
 
-// Yön kontrollü değiştirme butonları
+function changeVolume(val) { if (player && player.setVolume) player.setVolume(val); }
 function togglePlay() { player.getPlayerState() == 1 ? player.pauseVideo() : player.playVideo(); }
 function nextTrack() { skipDirection = 1; player.nextVideo(); }
 function prevTrack() { skipDirection = -1; player.previousVideo(); }
 
-// Geçmiş (Bireysel Silme ve Beyaz Yazı)
+// Geçmiş Fonksiyonları
 function saveToHistory(link, title) {
     let history = JSON.parse(localStorage.getItem('muartHistory') || "[]");
     if (history.some(item => item.link === link)) return; 
