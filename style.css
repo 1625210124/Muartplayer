@@ -10,87 +10,78 @@ body {
 
 .main-wrapper {
     display: flex;
-    gap: 20px;
+    gap: 30px;
     width: 100%;
-    max-width: 1000px;
-    flex-wrap: wrap; /* Mobilde alt alta gelmesi için */
+    max-width: 1200px;
+    flex-wrap: wrap;
 }
 
 .player-section {
     flex: 2;
     background: #0a0a0a;
-    border: 3px solid #ff0000;
-    padding: 30px;
-    border-radius: 15px;
+    border: 4px solid #ff0000;
+    padding: 40px;
+    border-radius: 20px;
     text-align: center;
-    min-width: 320px;
+    min-width: 350px;
+    box-shadow: 0 0 30px rgba(255, 0, 0, 0.2);
 }
 
 .queue-section {
     flex: 1;
     background: #050505;
-    border: 2px solid #550000;
-    padding: 20px;
-    border-radius: 15px;
-    max-height: 600px;
+    border: 2px solid #300;
+    padding: 25px;
+    border-radius: 20px;
+    max-height: 700px;
     overflow-y: auto;
-    min-width: 250px;
+    min-width: 300px;
 }
 
-h1 { font-size: 3rem; margin-top: 0; text-shadow: 3px 3px #500; }
+h1 { font-size: 4rem; margin-top: 0; text-shadow: 4px 4px #500; }
+
+.input-group { display: flex; gap: 10px; margin-bottom: 20px; }
 
 input {
-    width: 70%;
-    padding: 15px;
+    flex: 1;
+    padding: 20px;
     background: #111;
-    border: 1px solid #ff0000;
+    border: 2px solid #ff0000;
     color: #fff;
-    font-size: 1.2rem;
+    font-size: 1.3rem;
+    font-family: sans-serif;
 }
 
-.controls {
-    margin-top: 20px;
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-}
-
-.controls button {
-    padding: 15px 25px;
-    font-size: 1.2rem;
+.ctrl-btn {
+    padding: 20px 40px;
+    font-size: 1.4rem;
     background: #ff0000;
     color: #000;
     border: none;
     cursor: pointer;
     font-weight: bold;
+    transition: 0.2s;
 }
 
-.controls button:hover { background: #fff; }
+.ctrl-btn:hover { background: #fff; transform: scale(1.05); }
 
 #player-container {
-    margin: 20px 0;
+    margin: 30px 0;
     background: #000;
-    border: 1px solid #333;
+    border: 1px solid #222;
     aspect-ratio: 16/9;
 }
 
 .queue-item {
-    padding: 10px;
-    border-bottom: 1px solid #222;
+    padding: 15px;
+    border-bottom: 1px solid #200;
     cursor: pointer;
-    font-size: 1.1rem;
-    transition: 0.3s;
+    font-size: 1.2rem;
+    color: #888;
 }
 
-.queue-item:hover { color: #fff; background: #111; }
-
-.queue-item.active { color: #fff; border-left: 5px solid #ff0000; padding-left: 15px; }
-
-.clear-btn {
-    margin-top: 20px;
-    width: 100%;
-    background: #222;
-    color: #ff0000;
-    border: 1px solid #ff0000;
-    padding: 10px;
+.queue-item.active {
+    color: #fff;
+    background: #200;
+    border-left: 6px solid #ff0000;
 }
