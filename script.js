@@ -1,6 +1,7 @@
 let player;
 let isPlaylist = false;
-let playlistTitles = {}; // Öğrenilen şarkı isimleri
+let isScanning = false;
+let playlistTitles = {}; 
 
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('main-player', {
@@ -28,6 +29,7 @@ function loadMedia() {
     const videoId = url.searchParams.get("v");
 
     isPlaylist = false;
+    isScanning = false;
     playlistTitles = {}; 
 
     if (listId) {
@@ -41,32 +43,49 @@ function loadMedia() {
             index: 0
         });
         saveToHistory(link, finalTitle);
+        // Tarama modunu başlat
+        isScanning = true;
+        player.mute(); 
+        document.getElementById('status').innerText = "Liste taranıyor, lütfen bekleyin...";
     } else if (videoId) {
         player.loadVideoById(videoId);
-        // İsim çalmaya başlayınca otomatik kaydedilecek
     }
     linkInput.value = "";
 }
 
 function onPlayerStateChange(event) {
     if (event.data == YT.PlayerState.PLAYING) {
-        document.getElementById('play-pause-btn').innerHTML = "|| DURDUR";
-        
         let videoData = player.getVideoData();
         let currentTitle = videoData.title;
         let currentId = videoData.video_id;
 
-        document.getElementById('status').innerText = "Çalınıyor: " + currentTitle;
-
-        // Akıllı İsimlendirme: İsmi listeye kaydet
+        // İsmi hafızaya al
         playlistTitles[currentId] = currentTitle;
-        
-        if (!isPlaylist) {
-            saveToHistory("https://www.youtube.com/watch?v=" + currentId, currentTitle);
-        }
+        updateQueueUI();
 
-        updateQueueUI(); 
-    } else if (event.data == YT.PlayerState.PAUSED) {
+        if (isScanning) {
+            // Tarama modundaysak bir sonrakine atla
+            const currentIndex = player.getPlaylistIndex();
+            const playlistLength = player.getPlaylist().length;
+
+            if (currentIndex < playlistLength - 1) {
+                setTimeout(() => player.nextVideo(), 800); // 800ms bekleyip geç
+            } else {
+                // Tarama bitti
+                isScanning = false;
+                player.unMute();
+                player.playVideoAt(0); // İlk şarkıya dön ve başlat
+                document.getElementById('status').innerText = "Tarama tamamlandı. Keyifli dinlemeler!";
+            }
+        } else {
+            // Normal mod
+            document.getElementById('play-pause-btn').innerHTML = "|| DURDUR";
+            document.getElementById('status').innerText = "Çalınıyor: " + currentTitle;
+            if (!isPlaylist) {
+                saveToHistory("https://www.youtube.com/watch?v=" + currentId, currentTitle);
+            }
+        }
+    } else if (event.data == YT.PlayerState.PAUSED && !isScanning) {
         document.getElementById('play-pause-btn').innerHTML = "> OYNAT";
     }
 }
@@ -87,29 +106,31 @@ function updateQueueUI() {
             const div = document.createElement('div');
             div.className = `queue-item ${index === currentIndex ? 'active' : ''}`;
             
-            // İsmi biliyorsak göster, yoksa ID göster
-            let displayTitle = playlistTitles[id] || "Şarkı " + (index + 1) + " (Bekleniyor...)";
-            
+            let displayTitle = playlistTitles[id] || "Şarkı " + (index + 1) + " (Taranıyor...)";
             div.innerText = displayTitle;
-            div.onclick = () => player.playVideoAt(index);
+            div.onclick = () => {
+                isScanning = false; // Tıklanırsa taramayı boz
+                player.unMute();
+                player.playVideoAt(index);
+            };
             listDiv.appendChild(div);
         });
     }
 }
 
+// Hafıza ve Kontrol Fonksiyonları (V9)
 function saveToHistory(link, title) {
-    let history = JSON.parse(localStorage.getItem('muartHistoryV8') || "[]");
+    let history = JSON.parse(localStorage.getItem('muartHistoryV9') || "[]");
     if (history.some(item => item.link === link)) return; 
-
     history.unshift({ link: link, title: title });
     if (history.length > 15) history.pop();
-    localStorage.setItem('muartHistoryV8', JSON.stringify(history));
+    localStorage.setItem('muartHistoryV9', JSON.stringify(history));
     updateHistoryUI();
 }
 
 function updateHistoryUI() {
     const historyList = document.getElementById('history-list');
-    let history = JSON.parse(localStorage.getItem('muartHistoryV8') || "[]");
+    let history = JSON.parse(localStorage.getItem('muartHistoryV9') || "[]");
     if (!historyList) return;
     historyList.innerHTML = "";
     history.forEach(item => {
@@ -126,7 +147,7 @@ function updateHistoryUI() {
 
 function clearHistory() {
     if (confirm("Geçmiş silinsin mi?")) {
-        localStorage.removeItem('muartHistoryV8');
+        localStorage.removeItem('muartHistoryV9');
         updateHistoryUI();
     }
 }
