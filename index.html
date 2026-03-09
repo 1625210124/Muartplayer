@@ -3,29 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Muart Player v2</title>
+    <title>Muart Player PRO</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <script src="https://www.youtube.com/iframe_api"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>MUART PLAYER</h1>
-        
-        <div class="input-group">
-            <input type="text" id="yt-link" placeholder="YouTube linkini buraya bırak...">
-            <button onclick="playMusic()">OYNAT</button>
-        </div>
-
-        <div id="player-container">
-            <p id="status">Bekleniyor...</p>
-        </div>
-
-        <div id="history-section">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h3 style="margin: 0;">GEÇMİŞ</h3>
-                <button onclick="clearHistory()" style="width: auto; padding: 5px 10px; font-size: 0.8rem; background: #333; color: #ff0000; border: 1px solid #ff0000;">LİSTEYİ SİL</button>
+    <div class="main-wrapper">
+        <div class="player-section">
+            <h1>MUART PLAYER PRO</h1>
+            
+            <div class="input-group">
+                <input type="text" id="yt-link" placeholder="YouTube linkini yapıştır...">
+                <button onclick="addToQueue()">EKLE</button>
             </div>
-            <div id="history-list"></div>
+
+            <div id="player-container">
+                <div id="main-player"></div> </div>
+
+            <div class="controls">
+                <button onclick="prevTrack()">❮ GERİ</button>
+                <button onclick="togglePlay()" id="play-pause-btn">DURDUR</button>
+                <button onclick="nextTrack()">İLERİ ❯</button>
+            </div>
+            
+            <p id="status">Ruhun ses bekliyor...</p>
+        </div>
+
+        <div class="queue-section">
+            <h3>SIRADAKİ ŞARKILAR</h3>
+            <div id="queue-list"></div>
+            <button onclick="clearQueue()" class="clear-btn">LİSTEYİ TEMİZLE</button>
         </div>
     </div>
     <script src="script.js"></script>
