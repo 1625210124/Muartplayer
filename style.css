@@ -10,128 +10,115 @@ body {
 
 .main-wrapper {
     display: flex;
-    gap: 30px;
+    gap: 25px;
     width: 100%;
-    max-width: 1200px;
-    flex-wrap: wrap; /* Mobilde alt alta gelmesi için */
+    max-width: 1100px;
+    flex-wrap: wrap;
 }
 
 .player-section {
     flex: 2;
     background: #0a0a0a;
     border: 4px solid #ff0000;
-    padding: 40px;
-    border-radius: 25px; /* Kenar yumuşatma artırıldı */
+    padding: 30px;
+    border-radius: 25px; /* Yumuşatılmış kenarlar */
     text-align: center;
-    min-width: 350px;
-    box-shadow: 0 0 30px rgba(255, 0, 0, 0.2);
+    min-width: 320px;
 }
 
 .queue-section {
     flex: 1;
     background: #050505;
-    border: 3px solid #ff0000; /* Yan liste çerçeveye alındı */
-    padding: 25px;
-    border-radius: 25px; /* Kenar yumuşatma */
-    max-height: 700px;
+    border: 3px solid #ff0000; /* Çerçeve eklendi */
+    padding: 20px;
+    border-radius: 25px;
+    max-height: 650px;
     overflow-y: auto;
-    min-width: 300px;
-    box-shadow: 0 0 20px rgba(255, 0, 0, 0.1);
+    min-width: 280px;
 }
 
-h1 { font-size: 4rem; margin-top: 0; text-shadow: 4px 4px #500; }
+h1 { font-size: 3.5rem; margin-top: 0; text-shadow: 3px 3px #500; }
 
-.input-group { display: flex; gap: 10px; margin-bottom: 20px; }
+.input-group { display: flex; gap: 8px; margin-bottom: 20px; }
 
 input {
     flex: 1;
-    padding: 20px;
+    padding: 15px;
     background: #111;
     border: 2px solid #ff0000;
     color: #fff;
-    font-size: 1.3rem;
-    font-family: sans-serif;
-    border-radius: 10px;
+    font-size: 1.1rem;
+    border-radius: 12px;
 }
 
 .load-btn {
-    padding: 10px 20px;
+    padding: 0 20px;
     background: #fff;
     color: #000;
     border: none;
-    border-radius: 5px;
+    border-radius: 12px;
     font-weight: bold;
     cursor: pointer;
 }
 
 .controls {
-    margin-top: 30px;
+    margin-top: 25px;
     display: flex;
     justify-content: center;
-    gap: 15px; /* Butonlar arası boşluk */
-    flex-direction: row; /* Yan yana */
+    gap: 12px;
 }
 
 .ctrl-btn {
-    padding: 15px 30px;
-    font-size: 1.3rem;
+    padding: 15px 25px;
+    font-size: 1.2rem;
     background: #ff0000;
     color: #000;
     border: none;
-    cursor: pointer;
+    border-radius: 30px; /* Yuvarlak butonlar */
     font-weight: bold;
+    cursor: pointer;
     transition: 0.2s;
-    border-radius: 30px; /* Kenar yumuşatma */
 }
 
-.ctrl-btn:hover { background: #fff; transform: scale(1.05); }
+.ctrl-btn:hover { background: #fff; }
 
 #player-container {
-    margin: 30px 0;
+    margin: 20px 0;
     background: #000;
-    border: 1px solid #222;
+    border-radius: 15px;
+    overflow: hidden;
     aspect-ratio: 16/9;
 }
 
-#status {
-    margin-top: 15px;
-    font-size: 1rem;
-    color: #ff0000;
-    font-style: italic;
-}
-
 .queue-item {
-    padding: 15px;
+    padding: 12px;
     border-bottom: 1px solid #200;
     cursor: pointer;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     color: #888;
-    transition: 0.3s;
 }
-
-.queue-item:hover { color: #fff; background: #111; }
 
 .queue-item.active {
     color: #fff;
     background: #200;
-    border-left: 6px solid #ff0000;
-    padding-left: 20px;
+    border-left: 5px solid #ff0000;
 }
 
-/* Geçmiş Stilleri */
-#history-list {
-    max-height: 200px;
-    overflow-y: auto;
+#history-list { max-height: 180px; overflow-y: auto; text-align: left; }
+
+.history-item {
+    padding: 8px;
+    border-bottom: 1px solid #111;
+    cursor: pointer;
+    color: #666;
+    font-size: 1rem;
 }
 
 .clear-btn {
-    width: auto;
-    padding: 5px 15px;
-    font-size: 0.9rem;
     background: #222;
     color: #ff0000;
     border: 1px solid #ff0000;
-    border-radius: 5px;
-    font-weight: bold;
+    padding: 5px 10px;
+    border-radius: 8px;
     cursor: pointer;
 }
