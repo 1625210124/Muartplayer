@@ -1,13 +1,7 @@
-/**
- * MUARTPLAYER - ANTI-AD & UNDERTALE EDITION (2026)
- * Reklam Yakalama, Otomatik Sessize Alma ve Kesin Döngü Modu
- */
-
 let player, isPlaylist = false, isScanning = false, playlistTitles = {};
 let currentListId = "", skipDirection = 1, loopState = 0, isShuffled = false;
 let loopCheckInterval;
 
-// 1. YouTube API Hazırlığı (Reklam Engelleme Parametreleriyle)
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('main-player', {
         height: '100%', 
@@ -16,11 +10,7 @@ function onYouTubeIframeAPIReady() {
             'autoplay': 1, 
             'controls': 1, 
             'rel': 0, 
-            'enablejsapi': 1,
-            'modestbranding': 1, // YouTube logosunu gizle
-            'iv_load_policy': 3,  // Video içi duyuruları kapat
-            'showinfo': 0,
-            'origin': window.location.origin
+            'enablejsapi': 1 
         },
         events: {
             'onReady': onPlayerReady,
@@ -32,93 +22,75 @@ function onYouTubeIframeAPIReady() {
 
 function onPlayerReady() {
     updateHistoryUI();
-    startUltraControlTimer(); // Reklam ve Döngü motoru
+    startLoopTimer();
+    player.setVolume(100);
 }
 
-// 2. ULTRA KONTROL MOTORU (Reklam Atlatma & Döngü)
-function startUltraControlTimer() {
+// Sadece Tekli Döngüyü kontrol eden tertemiz motor (Reklam hackleri çıkarıldı)
+function startLoopTimer() {
     if (loopCheckInterval) clearInterval(loopCheckInterval);
     loopCheckInterval = setInterval(() => {
-        if (!player || typeof player.getPlayerState !== "function") return;
-
-        let state = player.getPlayerState();
-        let videoData = player.getVideoData();
-
-        // --- REKLAM YAKALAYICI (Burası Önemli) ---
-        // Reklam oynuyorsa veya başlık boşsa (reklam belirtisi) devreye girer
-        let isAd = (player.getAdState && player.getAdState() === 1) || 
-                   (videoData && (videoData.title === "" || videoData.title === "Advertisement"));
-
-        if (isAd) {
-            player.setVolume(0); // Reklam sesini anında kes
-            document.getElementById('status').innerText = "🛡️ Reklam Atlanıyor / Sessiz Mod...";
-            
-            // Reklamı ileri sararak bitirmeye zorla (Eğer YouTube izin verirse)
-            if (player.getDuration() > 0) {
-                player.seekTo(player.getDuration() + 10, true);
-            }
-        } else {
-            // Reklam değilse ve tarama modunda değilsek sesi geri aç
-            if (!isScanning) {
-                let vol = document.getElementById('volume-slider').value;
-                player.setVolume(vol);
-            }
-        }
-
-        // --- TEKLİ DÖNGÜ (Loop) ---
-        if (state === 1 && loopState === 2) {
+        if (player && player.getPlayerState() === 1 && loopState === 2) {
             let now = player.getCurrentTime();
             let total = player.getDuration();
-            if (total > 0 && (total - now) < 1.3) {
+            // Şarkı bitmeden hemen önce başa sar
+            if (total > 0 && (total - now) < 1.2) {
                 player.seekTo(0);
                 player.playVideo();
             }
         }
-    }, 500); // Her yarım saniyede bir kontrol et
+    }, 500);
 }
 
-// 3. HATA YÖNETİMİ
+// Oynatılamayan (Engelli) videoları atlama sistemi
 function onPlayerError(e) {
-    document.getElementById('status').innerText = "Video engelli, atlanıyor...";
-    setTimeout(() => {
-        skipDirection === 1 ? player.nextVideo() : player.previousVideo();
-    }, 800);
+    if ([2, 101, 150].includes(e.data)) {
+        document.getElementById('status').innerText = "Video engelli, atlanıyor...";
+        setTimeout(() => {
+            skipDirection === 1 ? player.nextVideo() : player.previousVideo();
+        }, 800);
+    }
 }
 
-// 4. MEDYA YÜKLEME (No-Cookie Zorlaması)
 function loadMedia() {
     const inp = document.getElementById('yt-link');
-    let rawLink = inp.value.trim();
-    if (!rawLink) return;
+    const link = inp.value.trim();
+    if (!link) return;
 
-    // Reklamları zorlaştırmak için Linki Embed/No-Cookie formatına yaklaştır
-    let cleanLink = rawLink.replace("music.youtube.com", "www.youtube-nocookie.com")
-                           .replace("www.youtube.com", "www.youtube-nocookie.com");
-    
-    const url = new URL(cleanLink);
+    // Normal, temiz link yapısına geri dönüldü
+    const url = new URL(link.replace("music.", "www."));
     const listId = url.searchParams.get("list");
     const videoId = url.searchParams.get("v");
     
     isPlaylist = false; isScanning = false; playlistTitles = {}; skipDirection = 1;
+    isShuffled = false;
+    document.getElementById('shuffle-btn').style.color = "#fff";
+    document.getElementById('shuffle-btn').style.borderColor = "#fff";
 
     if (listId) {
         isPlaylist = true; 
         currentListId = listId;
         let cache = JSON.parse(localStorage.getItem('muartCache') || "{}");
+        let finalTitle = "Liste: " + listId;
         let history = JSON.parse(localStorage.getItem('muartHistory') || "[]");
         let existing = history.find(i => i.link.includes(listId));
         
-        let finalTitle = existing ? existing.title : (prompt("Liste İsmi:", "Yeni Liste") || "Yeni Liste");
+        if (existing) finalTitle = existing.title;
+        else { 
+            let ut = prompt("Liste İsmi:", "Yeni Playlist"); 
+            if (ut) finalTitle = ut; 
+        }
         
         player.loadPlaylist({ listType: 'playlist', list: listId, index: 0 });
-        saveToHistory(rawLink, finalTitle);
+        saveToHistory(link, finalTitle);
 
         if (cache[listId]) {
             playlistTitles = cache[listId];
+            document.getElementById('status').innerText = "Hafızadan yüklendi!";
             setTimeout(updateQueueUI, 1000);
         } else { 
             isScanning = true; 
-            player.setVolume(0); 
+            player.mute(); 
             document.getElementById('status').innerText = "Liste taranıyor...";
         }
     } else if (videoId) {
@@ -127,7 +99,6 @@ function loadMedia() {
     inp.value = "";
 }
 
-// 5. OYNATICI DURUM DEĞİŞİKLİĞİ
 function onPlayerStateChange(e) {
     if (e.data == YT.PlayerState.PLAYING) {
         let vd = player.getVideoData();
@@ -145,26 +116,25 @@ function onPlayerStateChange(e) {
                     cache[currentListId] = playlistTitles;
                     localStorage.setItem('muartCache', JSON.stringify(cache));
                     isScanning = false; 
-                    let vol = document.getElementById('volume-slider').value;
-                    player.setVolume(vol);
+                    player.unMute(); 
                     player.playVideoAt(0);
-                    document.getElementById('status').innerText = "Sistem Hazır.";
+                    document.getElementById('status').innerText = "Tarama bitti!";
                 }
             } else {
                 document.getElementById('play-pause-btn').innerText = "|| DURDUR";
                 document.getElementById('status').innerText = "Çalınıyor: " + vd.title;
+                if (!isPlaylist) saveToHistory("https://www.youtube.com/watch?v=" + vd.video_id, vd.title);
             }
         }
-    } else if (e.data == YT.PlayerState.PAUSED) {
+    } else if (e.data == YT.PlayerState.PAUSED && !isScanning) {
         document.getElementById('play-pause-btn').innerText = "> OYNAT";
     }
 }
 
-// 6. LİSTE ARAYÜZÜ
 function updateQueueUI() {
     const div = document.getElementById('queue-list');
     if (!isPlaylist) { 
-        div.innerHTML = "<p style='color:#666; text-align:center;'>Tekli parça modu.</p>"; 
+        div.innerHTML = "<p style='color:#888; text-align:center;'>Tekli parça modu.</p>"; 
         return; 
     }
     const ids = player.getPlaylist(), cur = player.getPlaylistIndex();
@@ -173,14 +143,13 @@ function updateQueueUI() {
         ids.forEach((id, idx) => {
             const item = document.createElement('div');
             item.className = `queue-item ${idx === cur ? 'active' : ''}`;
-            item.innerText = playlistTitles[id] || "Yükleniyor...";
-            item.onclick = () => { isScanning = false; player.playVideoAt(idx); };
+            item.innerText = playlistTitles[id] || "Şarkı " + (idx + 1) + " (Bekleniyor...)";
+            item.onclick = () => { isScanning = false; player.unMute(); player.playVideoAt(idx); };
             div.appendChild(item);
         });
     }
 }
 
-// 7. DİĞER KONTROLLER
 function toggleLoop() {
     loopState = (loopState + 1) % 3;
     const btn = document.getElementById('loop-btn');
@@ -195,7 +164,10 @@ function toggleShuffle() {
     if (!isPlaylist) return;
     isShuffled = !isShuffled;
     player.setShuffle(isShuffled);
-    document.getElementById('shuffle-btn').style.color = isShuffled ? "#ff0000" : "#fff";
+    const btn = document.getElementById('shuffle-btn');
+    btn.style.color = isShuffled ? "#ff0000" : "#fff";
+    btn.style.borderColor = isShuffled ? "#ff0000" : "#fff";
+    setTimeout(updateQueueUI, 500);
 }
 
 function changeVolume(v) { if (player && player.setVolume) player.setVolume(v); }
@@ -203,12 +175,11 @@ function togglePlay() { player.getPlayerState() == 1 ? player.pauseVideo() : pla
 function nextTrack() { skipDirection = 1; player.nextVideo(); }
 function prevTrack() { skipDirection = -1; player.previousVideo(); }
 
-// 8. GEÇMİŞ
 function saveToHistory(l, t) {
     let h = JSON.parse(localStorage.getItem('muartHistory') || "[]");
     if (h.some(i => i.link === l)) return;
     h.unshift({ link: l, title: t });
-    if (h.length > 15) h.pop();
+    if (h.length > 20) h.pop();
     localStorage.setItem('muartHistory', JSON.stringify(h));
     updateHistoryUI();
 }
@@ -224,7 +195,7 @@ function updateHistoryUI() {
         item.innerHTML = `<span class="history-text">>> ${i.title}</span><button class="del-btn">X</button>`;
         item.querySelector('.history-text').onclick = () => { document.getElementById('yt-link').value = i.link; loadMedia(); };
         item.querySelector('.del-btn').onclick = (e) => {
-            e.stopPropagation();
+            e.stopPropagation(); // Silme tuşuna basınca videonun açılmasını engeller
             let newH = JSON.parse(localStorage.getItem('muartHistory')).filter(x => x.link !== i.link);
             localStorage.setItem('muartHistory', JSON.stringify(newH));
             updateHistoryUI();
