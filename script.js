@@ -26,14 +26,13 @@ function onPlayerReady() {
     player.setVolume(100);
 }
 
-// Sadece Tekli Döngüyü kontrol eden tertemiz motor (Reklam hackleri çıkarıldı)
+// Sadece Tekli Döngüyü kontrol eden temiz motor
 function startLoopTimer() {
     if (loopCheckInterval) clearInterval(loopCheckInterval);
     loopCheckInterval = setInterval(() => {
         if (player && player.getPlayerState() === 1 && loopState === 2) {
             let now = player.getCurrentTime();
             let total = player.getDuration();
-            // Şarkı bitmeden hemen önce başa sar
             if (total > 0 && (total - now) < 1.2) {
                 player.seekTo(0);
                 player.playVideo();
@@ -42,10 +41,10 @@ function startLoopTimer() {
     }, 500);
 }
 
-// Oynatılamayan (Engelli) videoları atlama sistemi
+// Oynatılamayan (Gizli/Engelli) videoları atlama sistemi
 function onPlayerError(e) {
     if ([2, 101, 150].includes(e.data)) {
-        document.getElementById('status').innerText = "Video engelli, atlanıyor...";
+        document.getElementById('status').innerText = "Video oynatılamıyor, geçiliyor...";
         setTimeout(() => {
             skipDirection === 1 ? player.nextVideo() : player.previousVideo();
         }, 800);
@@ -57,7 +56,6 @@ function loadMedia() {
     const link = inp.value.trim();
     if (!link) return;
 
-    // Normal, temiz link yapısına geri dönüldü
     const url = new URL(link.replace("music.", "www."));
     const listId = url.searchParams.get("list");
     const videoId = url.searchParams.get("v");
@@ -195,7 +193,7 @@ function updateHistoryUI() {
         item.innerHTML = `<span class="history-text">>> ${i.title}</span><button class="del-btn">X</button>`;
         item.querySelector('.history-text').onclick = () => { document.getElementById('yt-link').value = i.link; loadMedia(); };
         item.querySelector('.del-btn').onclick = (e) => {
-            e.stopPropagation(); // Silme tuşuna basınca videonun açılmasını engeller
+            e.stopPropagation();
             let newH = JSON.parse(localStorage.getItem('muartHistory')).filter(x => x.link !== i.link);
             localStorage.setItem('muartHistory', JSON.stringify(newH));
             updateHistoryUI();
