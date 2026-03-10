@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MuartPlayer</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <script src="https://www.youtube.com/iframe_api"></script>
+</head>
+<body>
+    <div class="main-wrapper">
+        <div class="player-section">
+            <h1>MuartPlayer</h1>
+            
+            <div class="input-group">
+                <input type="text" id="yt-link" placeholder="Playlist veya Şarkı linki...">
+                <button onclick="loadMedia()" class="load-btn">YÜKLE</button>
+            </div>
+
+            <div id="player-container">
+                <div id="main-player"></div>
+            </div>
+
+            <div class="extra-controls">
+                <button onclick="toggleLoop()" id="loop-btn" class="small-btn">DÖNGÜ: KAPALI</button>
+                <button onclick="toggleShuffle()" id="shuffle-btn" class="small-btn">KARIŞTIR</button>
+                <div class="volume-container">
+                    <span>SES:</span>
+                    <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)">
+                </div>
+            </div>
+
+            <div class="controls">
+                <button onclick="prevTrack()" class="ctrl-btn">&lt;&lt; GERİ</button>
+                <button onclick="togglePlay()" id="play-pause-btn" class="ctrl-btn">|| DURDUR</button>
+                <button onclick="nextTrack()" class="ctrl-btn">İLERİ &gt;&gt;</button>
+            </div>
+            
+            <p id="status">Sistem hazır...</p>
+
+            <div id="history-section">
+                <h3 style="color: #fff; font-size: 1.5rem; text-align: left; margin-top: 20px;">GEÇMİŞ</h3>
+                <div id="history-list"></div>
+            </div>
+        </div>
+
+        <div class="queue-section">
+            <h3 style="font-size: 1.8rem; text-align: center;">SIRADAKİ LİSTE</h3>
+            <div id="queue-list">
+                <p style="color: #666; font-size: 1.2rem; text-align: center;">Playlist bekleniyor...</p>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
