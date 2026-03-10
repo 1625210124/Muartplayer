@@ -72,7 +72,7 @@ input[type="text"] {
     padding: 8px 12px;
     border-radius: 8px;
     cursor: pointer;
-    font-family: 'VT323';
+    font-family: 'VT323', monospace;
     font-size: 1.1rem;
 }
 
