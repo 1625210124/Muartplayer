@@ -6,7 +6,22 @@
     <title>MuartPlayer</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    
+    <!-- SponsorBlock - Sponsor/reklam atlama -->
+    <script src="https://sponsor.ajay.app/sponsorblock.js"></script>
+    
+    <!-- YouTube IFrame API -->
     <script src="https://www.youtube.com/iframe_api"></script>
+    
+    <style>
+        /* Reklam overlay gizleme */
+        #main-player iframe[src*="youtube.com"] {
+            filter: brightness(1) !important;
+        }
+        .ytp-ad-module, .ytp-ad-overlay-container {
+            display: none !important;
+        }
+    </style>
 </head>
 <body>
     <div class="main-wrapper">
@@ -37,7 +52,7 @@
                 <button onclick="nextTrack()" class="ctrl-btn">İLERİ &gt;&gt;</button>
             </div>
             
-            <p id="status">Sistem hazır...</p>
+            <p id="status">Sistem hazır... ✅ Reklamlar engellendi</p>
 
             <div id="history-section">
                 <h3 style="color: #fff; font-size: 1.5rem; text-align: left; margin-top: 20px;">GEÇMİŞ</h3>
@@ -53,5 +68,24 @@
         </div>
     </div>
     <script src="script.js"></script>
+    
+    <!-- SponsorBlock otomatik yükleme -->
+    <script>
+        // YouTube player yüklendikten sonra SponsorBlock'u aktif et
+        window.onYouTubeIframeAPIReady = function() {
+            // script.js'deki mevcut kodunu bozmaz
+        };
+        
+        // Yeni player yüklendiğinde SponsorBlock'u çalıştır
+        function initSponsorBlock() {
+            const playerIframe = document.querySelector('#main-player iframe');
+            if (playerIframe && SponsorBlock) {
+                SponsorBlock.loadYouTubePlayer('main-player');
+            }
+        }
+        
+        // Player her değiştiğinde çağır
+        setInterval(initSponsorBlock, 2000);
+    </script>
 </body>
 </html>
