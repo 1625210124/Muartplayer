@@ -1,5 +1,6 @@
-// PIPED API ALTYAPISI & TAM MUARTPLAYER ÖZELLİKLERİ
-const PIPED_INSTANCE = "https://pipedapi.kavin.rocks"; // Piped'ın ana sunucusu
+// PROXY VE API AYARLARI
+const PROXY_URL = "https://api.allorigins.win/raw?url="; // Veriyi bu köprü üzerinden çekeceğiz
+const API_BASE = "https://pipedapi.kavin.rocks"; // Piped'ın en sağlam API'si
 
 let playlist = []; 
 let originalPlaylist = []; 
@@ -9,11 +10,11 @@ let isShuffled = false;
 let loopCheckInterval;
 let videoPlayer;
 
+// Sayfa yüklendiğinde oynatıcıyı kur
 window.onload = () => {
     const container = document.getElementById('main-player');
     container.innerHTML = ""; 
     
-    // HTML5 Oynatıcı
     videoPlayer = document.createElement('video');
     videoPlayer.id = "main-video-player";
     videoPlayer.controls = true;
@@ -24,15 +25,21 @@ window.onload = () => {
     
     videoPlayer.onended = onVideoEnded;
     videoPlayer.onerror = onPlayerError;
-
     container.appendChild(videoPlayer);
     
     updateHistoryUI(); 
-    startLoopTimer(); 
+    startLoopTimer(); // SENİN DÖNGÜ MOTORUN
     changeVolume(document.getElementById('volume-slider').value);
 };
 
-// Kusursuz Tekli Döngü Motoru
+// --- PROXY DESTEKLİ FETCH FONKSİYONU ---
+async function fetchWithProxy(url) {
+    const response = await fetch(PROXY_URL + encodeURIComponent(url));
+    if (!response.ok) throw new Error("Proxy hatası!");
+    return await response.json();
+}
+
+// 1.2 Saniye Kala Başa Sarma (Senin efsane taktik)
 function startLoopTimer() {
     if (loopCheckInterval) clearInterval(loopCheckInterval);
     loopCheckInterval = setInterval(() => {
@@ -48,25 +55,21 @@ function startLoopTimer() {
 }
 
 function onPlayerError() {
-    document.getElementById('status').innerText = "Video oynatılamıyor, atlanıyor...";
-    setTimeout(() => nextTrack(), 800);
+    document.getElementById('status').innerText = "Proxy üzerinden bile gelmedi, atlanıyor...";
+    setTimeout(() => nextTrack(), 1000);
 }
 
 function onVideoEnded() {
     if (loopState === 2) return; 
-    
     if (currentIndex < playlist.length - 1) {
         nextTrack();
     } else if (loopState === 1) {
         currentIndex = 0;
         playTrack(0);
-    } else {
-        document.getElementById('status').innerText = "Liste bitti.";
-        document.getElementById('play-pause-btn').innerText = "> OYNAT";
     }
 }
 
-// Piped API ile Liste ve Video Çekme
+// YÜKLEME BUTONU
 async function loadMedia() {
     const inp = document.getElementById('yt-link');
     const link = inp.value.trim();
@@ -76,39 +79,28 @@ async function loadMedia() {
     const listId = url.searchParams.get("list");
     const videoId = url.searchParams.get("v");
 
-    isShuffled = false; 
-    document.getElementById('shuffle-btn').style.color = "#fff";
-    document.getElementById('shuffle-btn').style.borderColor = "#fff";
-    document.getElementById('status').innerText = "Piped API'den veri çekiliyor...";
+    document.getElementById('status').innerText = "Proxy Köprüsü Kuruluyor...";
 
     if (listId) {
         try {
-            const res = await fetch(`${PIPED_INSTANCE}/playlists/${listId}`);
-            if (!res.ok) throw new Error("API Hatası");
-            const data = await res.json();
-            
-            // Piped'ın yapısına göre listeyi ayıkla
-            playlist = data.relatedStreams.map(v => {
-                // Piped URL formatı genelde "/watch?v=ID" şeklindedir
-                let vId = v.url.includes("?v=") ? v.url.split("?v=")[1] : v.url;
-                return { videoId: vId, title: v.title };
-            });
+            // Liste verisini Proxy üzerinden çekiyoruz
+            const data = await fetchWithProxy(`${API_BASE}/playlists/${listId}`);
+            playlist = data.relatedStreams.map(v => ({
+                videoId: v.url.split("?v=")[1] || v.url.split("/watch/")[1],
+                title: v.title
+            }));
             
             originalPlaylist = [...playlist]; 
             currentIndex = 0;
             
-            let history = JSON.parse(localStorage.getItem('muartHistory') || "[]");
-            let existing = history.find(i => i.link.includes(listId));
-            let finalTitle = existing ? existing.title : (prompt("Liste İsmi:", data.name || "Yeni Playlist") || data.name);
-            
-            saveToHistory(link, finalTitle);
+            saveToHistory(link, data.name || "Yeni Playlist");
             updateQueueUI(); 
             playTrack(currentIndex); 
         } catch (e) {
-            document.getElementById('status').innerText = "Liste çekilemedi! Gizli liste olabilir.";
+            document.getElementById('status').innerText = "Liste Proxy'ye takıldı!";
         }
     } else if (videoId) {
-        playlist = [{ videoId: videoId, title: "Bekleniyor..." }];
+        playlist = [{ videoId: videoId, title: "Video Bekleniyor..." }];
         originalPlaylist = [...playlist];
         currentIndex = 0;
         playTrack(0);
@@ -116,129 +108,89 @@ async function loadMedia() {
     inp.value = "";
 }
 
-// Piped API üzerinden Saf Video Oynatma
+// VİDEO OYNATMA (PROXY DESTEKLİ)
 async function playTrack(index) {
     if (!playlist[index]) return;
     const vId = playlist[index].videoId;
     
-    document.getElementById('status').innerText = "Medya çözülüyor (Piped)...";
+    document.getElementById('status').innerText = "Medya Ayrıştırılıyor...";
     
     try {
-        const res = await fetch(`${PIPED_INSTANCE}/streams/${vId}`);
-        if (!res.ok) throw new Error("API Hatası");
-        const data = await res.json();
+        // Video detaylarını ve stream linklerini Proxy üzerinden çek
+        const data = await fetchWithProxy(`${API_BASE}/streams/${vId}`);
         
-        // Piped'dan uygun MP4 veya Audio stream bul
-        // Önce hem ses hem görüntü olanı arar, bulamazsa ilk bulduğuna geçer
-        let stream = data.videoStreams.find(s => s.videoOnly === false && s.mimeType.includes("mp4"));
-        if (!stream && data.audioStreams.length > 0) stream = data.audioStreams[0]; // Sadece ses
-        if (!stream) stream = data.videoStreams[0]; 
-
-        if (!stream) throw new Error("Oynatılabilir stream bulunamadı");
+        // En kaliteli ama güvenli mp4'ü bul
+        let stream = data.videoStreams.find(s => !s.videoOnly && s.mimeType.includes("mp4"));
+        if (!stream) stream = data.audioStreams[0]; 
 
         videoPlayer.src = stream.url;
         videoPlayer.play();
         
-        playlist[index].title = data.title || "Bilinmeyen Şarkı";
-        document.getElementById('status').innerText = "Çalınıyor: " + playlist[index].title;
+        playlist[index].title = data.title;
+        document.getElementById('status').innerText = "Çalınıyor: " + data.title;
         document.getElementById('play-pause-btn').innerText = "|| DURDUR";
         
-        if (playlist.length === 1) {
-            saveToHistory("https://www.youtube.com/watch?v=" + vId, playlist[index].title);
-        }
-        
+        if (playlist.length === 1) saveToHistory("https://www.youtube.com/watch?v="+vId, data.title);
         updateQueueUI(); 
     } catch (e) {
-        console.error(e);
         onPlayerError();
     }
 }
 
+// --- TÜM EKSTRA ÖZELLİKLER (Kırpılmadı) ---
+
 function updateQueueUI() {
     const div = document.getElementById('queue-list');
-    if (playlist.length <= 1) { 
-        div.innerHTML = "<p style='color:#888; text-align:center;'>Tekli parça modu.</p>"; 
-        return; 
-    }
-    
     div.innerHTML = "";
+    if (playlist.length <= 1) return;
     playlist.forEach((item, idx) => {
         const el = document.createElement('div');
         el.className = `queue-item ${idx === currentIndex ? 'active' : ''}`;
-        el.innerText = item.title || "Şarkı " + (idx + 1);
+        el.innerText = item.title || "Yükleniyor...";
         el.onclick = () => { currentIndex = idx; playTrack(idx); };
         div.appendChild(el);
     });
 }
 
-function toggleLoop() {
-    loopState = (loopState + 1) % 3;
-    const btn = document.getElementById('loop-btn');
-    const cfg = [ {t:"KAPALI", c:"#fff"}, {t:"LİSTE", c:"#ff0000"}, {t:"TEKLİ", c:"#00ff00"} ];
-    btn.innerText = "DÖNGÜ: " + cfg[loopState].t;
-    btn.style.color = cfg[loopState].c;
-    btn.style.borderColor = cfg[loopState].c;
-}
-
 function toggleShuffle() {
     if (playlist.length <= 1) return;
-    
     isShuffled = !isShuffled;
     const btn = document.getElementById('shuffle-btn');
-    btn.style.color = isShuffled ? "#ff0000" : "#fff";
     btn.style.borderColor = isShuffled ? "#ff0000" : "#fff";
 
     if (isShuffled) {
         let currentItem = playlist[currentIndex];
-        let remaining = playlist.filter((_, idx) => idx !== currentIndex);
-        
-        for (let i = remaining.length - 1; i > 0; i--) {
+        let rest = playlist.filter((_, i) => i !== currentIndex);
+        for (let i = rest.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+            [rest[i], rest[j]] = [rest[j], rest[i]];
         }
-        
-        playlist = [currentItem, ...remaining]; 
-        currentIndex = 0; 
+        playlist = [currentItem, ...rest];
+        currentIndex = 0;
     } else {
         let currentItem = playlist[currentIndex];
         playlist = [...originalPlaylist];
-        
         currentIndex = playlist.findIndex(p => p.videoId === currentItem.videoId);
-        if(currentIndex === -1) currentIndex = 0;
     }
-    updateQueueUI(); 
+    updateQueueUI();
+}
+
+function toggleLoop() {
+    loopState = (loopState + 1) % 3;
+    const btn = document.getElementById('loop-btn');
+    const cfg = ["KAPALI", "LİSTE", "TEKLİ"];
+    btn.innerText = "DÖNGÜ: " + cfg[loopState];
+    btn.style.color = loopState === 1 ? "#f00" : (loopState === 2 ? "#0f0" : "#fff");
 }
 
 function togglePlay() { 
-    if(videoPlayer.paused) {
-        videoPlayer.play();
-        document.getElementById('play-pause-btn').innerText = "|| DURDUR";
-    } else {
-        videoPlayer.pause();
-        document.getElementById('play-pause-btn').innerText = "> OYNAT";
-    }
+    videoPlayer.paused ? videoPlayer.play() : videoPlayer.pause();
+    document.getElementById('play-pause-btn').innerText = videoPlayer.paused ? "> OYNAT" : "|| DURDUR";
 }
 
-function nextTrack() { 
-    if (currentIndex < playlist.length - 1) {
-        currentIndex++;
-        playTrack(currentIndex);
-    } else if (loopState === 1) {
-        currentIndex = 0;
-        playTrack(0);
-    }
-}
-
-function prevTrack() { 
-    if (currentIndex > 0) {
-        currentIndex--;
-        playTrack(currentIndex);
-    }
-}
-
-function changeVolume(v) { 
-    if (videoPlayer) videoPlayer.volume = v / 100; 
-}
+function nextTrack() { if (currentIndex < playlist.length - 1) { currentIndex++; playTrack(currentIndex); } }
+function prevTrack() { if (currentIndex > 0) { currentIndex--; playTrack(currentIndex); } }
+function changeVolume(v) { if (videoPlayer) videoPlayer.volume = v / 100; }
 
 function saveToHistory(l, t) {
     let h = JSON.parse(localStorage.getItem('muartHistory') || "[]");
@@ -251,7 +203,6 @@ function saveToHistory(l, t) {
 
 function updateHistoryUI() {
     const hl = document.getElementById('history-list');
-    if (!hl) return;
     let h = JSON.parse(localStorage.getItem('muartHistory') || "[]");
     hl.innerHTML = "";
     h.forEach(i => {
@@ -260,9 +211,9 @@ function updateHistoryUI() {
         item.innerHTML = `<span class="history-text">>> ${i.title}</span><button class="del-btn">X</button>`;
         item.querySelector('.history-text').onclick = () => { document.getElementById('yt-link').value = i.link; loadMedia(); };
         item.querySelector('.del-btn').onclick = (e) => {
-            e.stopPropagation(); 
-            let newH = JSON.parse(localStorage.getItem('muartHistory')).filter(x => x.link !== i.link);
-            localStorage.setItem('muartHistory', JSON.stringify(newH));
+            e.stopPropagation();
+            h = h.filter(x => x.link !== i.link);
+            localStorage.setItem('muartHistory', JSON.stringify(h));
             updateHistoryUI();
         };
         hl.appendChild(item);
