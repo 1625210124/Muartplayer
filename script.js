@@ -1,177 +1,218 @@
-let player, isPlaylist = false, isScanning = false, playlistTitles = {};
-let currentListId = "", skipDirection = 1, loopState = 0, isShuffled = false;
+// PROXY YOK - DOĞRUDAN API BAĞLANTILARI
+const COBALT_API = "https://api.cobalt.tools/api/json";
+const PIPED_API = "https://pipedapi.kavin.rocks";
+
+let playlist = []; 
+let originalPlaylist = []; 
+let currentIndex = 0;
+let loopState = 0; // 0: KAPALI, 1: LİSTE, 2: TEKLİ
+let isShuffled = false;
 let loopCheckInterval;
+let audioPlayer;
 
-function onYouTubeIframeAPIReady() {
-    player = new YT.Player('main-player', {
-        height: '100%', 
-        width: '100%',
-        playerVars: { 
-            'autoplay': 1, 
-            'controls': 1, 
-            'rel': 0, 
-            'enablejsapi': 1 
-        },
-        events: {
-            'onReady': onPlayerReady,
-            'onStateChange': onPlayerStateChange,
-            'onError': onPlayerError
-        }
-    });
-}
+window.onload = () => {
+    const container = document.getElementById('main-player');
+    container.innerHTML = ""; 
+    
+    // Video player yerine doğrudan HTML5 Audio Player
+    audioPlayer = document.createElement('audio'); 
+    audioPlayer.id = "main-video-player"; // CSS bozulmaması için ID aynı
+    audioPlayer.controls = true;
+    audioPlayer.autoplay = true;
+    audioPlayer.style.width = "100%";
+    audioPlayer.style.height = "100%";
+    audioPlayer.style.backgroundColor = "#111"; 
+    
+    audioPlayer.onended = onAudioEnded;
+    audioPlayer.onerror = onPlayerError;
+    container.appendChild(audioPlayer);
+    
+    updateHistoryUI(); 
+    startLoopTimer(); 
+    changeVolume(document.getElementById('volume-slider').value);
+};
 
-function onPlayerReady() {
-    updateHistoryUI();
-    startLoopTimer();
-    player.setVolume(100);
-}
-
-// Sadece Tekli Döngüyü kontrol eden temiz motor
+// 1.2 Saniye Kala Başa Saran Döngü Motoru (Kırpılmadı)
 function startLoopTimer() {
     if (loopCheckInterval) clearInterval(loopCheckInterval);
     loopCheckInterval = setInterval(() => {
-        if (player && player.getPlayerState() === 1 && loopState === 2) {
-            let now = player.getCurrentTime();
-            let total = player.getDuration();
+        if (audioPlayer && !audioPlayer.paused && loopState === 2) {
+            let now = audioPlayer.currentTime;
+            let total = audioPlayer.duration;
             if (total > 0 && (total - now) < 1.2) {
-                player.seekTo(0);
-                player.playVideo();
+                audioPlayer.currentTime = 0;
+                audioPlayer.play();
             }
         }
     }, 500);
 }
 
-// Oynatılamayan (Gizli/Engelli) videoları atlama sistemi
-function onPlayerError(e) {
-    if ([2, 101, 150].includes(e.data)) {
-        document.getElementById('status').innerText = "Video oynatılamıyor, geçiliyor...";
-        setTimeout(() => {
-            skipDirection === 1 ? player.nextVideo() : player.previousVideo();
-        }, 800);
+function onPlayerError() {
+    document.getElementById('status').innerText = "Hata oluştu, sıradakine geçiliyor...";
+    setTimeout(() => nextTrack(), 1000);
+}
+
+function onAudioEnded() {
+    if (loopState === 2) return; 
+    if (currentIndex < playlist.length - 1) {
+        nextTrack();
+    } else if (loopState === 1) {
+        currentIndex = 0;
+        playTrack(0);
     }
 }
 
-function loadMedia() {
+// PROXY OLMADAN DOĞRUDAN MP3 ÇEKEN FONKSİYON
+async function fetchMp3Direct(videoId) {
+    const response = await fetch(COBALT_API, {
+        method: "POST",
+        headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            url: `https://www.youtube.com/watch?v=${videoId}`,
+            isAudioOnly: true, // SADECE SES
+            aFormat: "mp3"     // MP3 FORMATI
+        })
+    });
+    
+    if (!response.ok) throw new Error("API Yanıt Vermedi");
+    const data = await response.json();
+    return data.url; // Proxy'siz doğrudan mp3 stream linki
+}
+
+// YÜKLEME BUTONU VE LİSTE ÇEKİCİ
+async function loadMedia() {
     const inp = document.getElementById('yt-link');
     const link = inp.value.trim();
     if (!link) return;
 
+    document.getElementById('status').innerText = "Bağlanıyor...";
+
     const url = new URL(link.replace("music.", "www."));
     const listId = url.searchParams.get("list");
     const videoId = url.searchParams.get("v");
-    
-    isPlaylist = false; isScanning = false; playlistTitles = {}; skipDirection = 1;
+
     isShuffled = false;
-    document.getElementById('shuffle-btn').style.color = "#fff";
     document.getElementById('shuffle-btn').style.borderColor = "#fff";
 
     if (listId) {
-        isPlaylist = true; 
-        currentListId = listId;
-        let cache = JSON.parse(localStorage.getItem('muartCache') || "{}");
-        let finalTitle = "Liste: " + listId;
-        let history = JSON.parse(localStorage.getItem('muartHistory') || "[]");
-        let existing = history.find(i => i.link.includes(listId));
-        
-        if (existing) finalTitle = existing.title;
-        else { 
-            let ut = prompt("Liste İsmi:", "Yeni Playlist"); 
-            if (ut) finalTitle = ut; 
-        }
-        
-        player.loadPlaylist({ listType: 'playlist', list: listId, index: 0 });
-        saveToHistory(link, finalTitle);
-
-        if (cache[listId]) {
-            playlistTitles = cache[listId];
-            document.getElementById('status').innerText = "Hafızadan yüklendi!";
-            setTimeout(updateQueueUI, 1000);
-        } else { 
-            isScanning = true; 
-            player.mute(); 
-            document.getElementById('status').innerText = "Liste taranıyor...";
+        try {
+            // Piped API'den proxy KULLANMADAN liste detaylarını al
+            const res = await fetch(`${PIPED_API}/playlists/${listId}`);
+            if (!res.ok) throw new Error("Liste bulunamadı");
+            const data = await res.json();
+            
+            playlist = data.relatedStreams.map(v => {
+                let vId = v.url.includes("?v=") ? v.url.split("?v=")[1] : v.url;
+                return { videoId: vId, title: v.title };
+            });
+            
+            originalPlaylist = [...playlist]; 
+            currentIndex = 0;
+            
+            saveToHistory(link, data.name || "Yeni Playlist");
+            updateQueueUI(); 
+            playTrack(currentIndex); 
+        } catch (e) {
+            document.getElementById('status').innerText = "Liste çekilemedi!";
         }
     } else if (videoId) {
-        player.loadVideoById(videoId);
+        playlist = [{ videoId: videoId, title: "Bekleniyor..." }];
+        originalPlaylist = [...playlist];
+        currentIndex = 0;
+        playTrack(0);
     }
     inp.value = "";
 }
 
-function onPlayerStateChange(e) {
-    if (e.data == YT.PlayerState.PLAYING) {
-        let vd = player.getVideoData();
-        if (vd && vd.title !== "") {
-            playlistTitles[vd.video_id] = vd.title;
+// OYNATMA MOTORU
+async function playTrack(index) {
+    if (!playlist[index]) return;
+    const vId = playlist[index].videoId;
+    
+    document.getElementById('status').innerText = "MP3 İşleniyor...";
+    
+    try {
+        const mp3Url = await fetchMp3Direct(vId);
+        
+        audioPlayer.src = mp3Url;
+        audioPlayer.play();
+        
+        // Piped'dan başlık çekme (Görsellik için)
+        fetch(`${PIPED_API}/streams/${vId}`).then(r => r.json()).then(d => {
+            playlist[index].title = d.title;
+            document.getElementById('status').innerText = "Çalınıyor: " + d.title;
+            if (playlist.length === 1) saveToHistory("https://www.youtube.com/watch?v="+vId, d.title);
             updateQueueUI();
-            
-            if (isScanning) {
-                const idx = player.getPlaylistIndex();
-                const len = player.getPlaylist().length;
-                if (idx < len - 1) {
-                    setTimeout(() => player.nextVideo(), 800);
-                } else {
-                    let cache = JSON.parse(localStorage.getItem('muartCache') || "{}");
-                    cache[currentListId] = playlistTitles;
-                    localStorage.setItem('muartCache', JSON.stringify(cache));
-                    isScanning = false; 
-                    player.unMute(); 
-                    player.playVideoAt(0);
-                    document.getElementById('status').innerText = "Tarama bitti!";
-                }
-            } else {
-                document.getElementById('play-pause-btn').innerText = "|| DURDUR";
-                document.getElementById('status').innerText = "Çalınıyor: " + vd.title;
-                if (!isPlaylist) saveToHistory("https://www.youtube.com/watch?v=" + vd.video_id, vd.title);
-            }
-        }
-    } else if (e.data == YT.PlayerState.PAUSED && !isScanning) {
-        document.getElementById('play-pause-btn').innerText = "> OYNAT";
+        }).catch(() => {
+            document.getElementById('status').innerText = "Çalınıyor: Ses Modu Aktif";
+        });
+        
+        document.getElementById('play-pause-btn').innerText = "|| DURDUR";
+        updateQueueUI(); 
+    } catch (e) {
+        onPlayerError();
     }
 }
 
+// ARAYÜZ, DÖNGÜ VE KARIŞTIRMA KONTROLLERİ (Kırpılmadı)
 function updateQueueUI() {
     const div = document.getElementById('queue-list');
-    if (!isPlaylist) { 
+    if (playlist.length <= 1) { 
         div.innerHTML = "<p style='color:#888; text-align:center;'>Tekli parça modu.</p>"; 
         return; 
     }
-    const ids = player.getPlaylist(), cur = player.getPlaylistIndex();
-    if (ids) {
-        div.innerHTML = "";
-        ids.forEach((id, idx) => {
-            const item = document.createElement('div');
-            item.className = `queue-item ${idx === cur ? 'active' : ''}`;
-            item.innerText = playlistTitles[id] || "Şarkı " + (idx + 1) + " (Bekleniyor...)";
-            item.onclick = () => { isScanning = false; player.unMute(); player.playVideoAt(idx); };
-            div.appendChild(item);
-        });
+    
+    div.innerHTML = "";
+    playlist.forEach((item, idx) => {
+        const el = document.createElement('div');
+        el.className = `queue-item ${idx === currentIndex ? 'active' : ''}`;
+        el.innerText = item.title || "Şarkı " + (idx + 1);
+        el.onclick = () => { currentIndex = idx; playTrack(idx); };
+        div.appendChild(el);
+    });
+}
+
+function toggleShuffle() {
+    if (playlist.length <= 1) return;
+    isShuffled = !isShuffled;
+    document.getElementById('shuffle-btn').style.borderColor = isShuffled ? "#ff0000" : "#fff";
+
+    if (isShuffled) {
+        let currentItem = playlist[currentIndex];
+        let rest = playlist.filter((_, i) => i !== currentIndex);
+        for (let i = rest.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [rest[i], rest[j]] = [rest[j], rest[i]];
+        }
+        playlist = [currentItem, ...rest];
+        currentIndex = 0;
+    } else {
+        let currentItem = playlist[currentIndex];
+        playlist = [...originalPlaylist];
+        currentIndex = playlist.findIndex(p => p.videoId === currentItem.videoId);
     }
+    updateQueueUI();
 }
 
 function toggleLoop() {
     loopState = (loopState + 1) % 3;
     const btn = document.getElementById('loop-btn');
-    const cfg = [ {t:"KAPALI", c:"#fff"}, {t:"LİSTE", c:"#ff0000"}, {t:"TEKLİ", c:"#00ff00"} ];
-    btn.innerText = "DÖNGÜ: " + cfg[loopState].t;
-    btn.style.color = cfg[loopState].c;
-    btn.style.borderColor = cfg[loopState].c;
-    if (player.setLoop) player.setLoop(loopState === 1);
+    const cfg = ["KAPALI", "LİSTE", "TEKLİ"];
+    btn.innerText = "DÖNGÜ: " + cfg[loopState];
+    btn.style.color = loopState === 1 ? "#f00" : (loopState === 2 ? "#0f0" : "#fff");
 }
 
-function toggleShuffle() {
-    if (!isPlaylist) return;
-    isShuffled = !isShuffled;
-    player.setShuffle(isShuffled);
-    const btn = document.getElementById('shuffle-btn');
-    btn.style.color = isShuffled ? "#ff0000" : "#fff";
-    btn.style.borderColor = isShuffled ? "#ff0000" : "#fff";
-    setTimeout(updateQueueUI, 500);
+function togglePlay() { 
+    audioPlayer.paused ? audioPlayer.play() : audioPlayer.pause();
+    document.getElementById('play-pause-btn').innerText = audioPlayer.paused ? "> OYNAT" : "|| DURDUR";
 }
 
-function changeVolume(v) { if (player && player.setVolume) player.setVolume(v); }
-function togglePlay() { player.getPlayerState() == 1 ? player.pauseVideo() : player.playVideo(); }
-function nextTrack() { skipDirection = 1; player.nextVideo(); }
-function prevTrack() { skipDirection = -1; player.previousVideo(); }
+function nextTrack() { if (currentIndex < playlist.length - 1) { currentIndex++; playTrack(currentIndex); } else if (loopState === 1) { currentIndex = 0; playTrack(0); } }
+function prevTrack() { if (currentIndex > 0) { currentIndex--; playTrack(currentIndex); } }
+function changeVolume(v) { if (audioPlayer) audioPlayer.volume = v / 100; }
 
 function saveToHistory(l, t) {
     let h = JSON.parse(localStorage.getItem('muartHistory') || "[]");
@@ -184,7 +225,6 @@ function saveToHistory(l, t) {
 
 function updateHistoryUI() {
     const hl = document.getElementById('history-list');
-    if (!hl) return;
     let h = JSON.parse(localStorage.getItem('muartHistory') || "[]");
     hl.innerHTML = "";
     h.forEach(i => {
@@ -194,8 +234,8 @@ function updateHistoryUI() {
         item.querySelector('.history-text').onclick = () => { document.getElementById('yt-link').value = i.link; loadMedia(); };
         item.querySelector('.del-btn').onclick = (e) => {
             e.stopPropagation();
-            let newH = JSON.parse(localStorage.getItem('muartHistory')).filter(x => x.link !== i.link);
-            localStorage.setItem('muartHistory', JSON.stringify(newH));
+            h = h.filter(x => x.link !== i.link);
+            localStorage.setItem('muartHistory', JSON.stringify(h));
             updateHistoryUI();
         };
         hl.appendChild(item);
