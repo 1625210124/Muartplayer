@@ -1,20 +1,19 @@
-// INVIDIOUS ALTYAPISI & TAM MUARTPLAYER ÖZELLİKLERİ
-const INVIDIOUS_INSTANCE = "https://yewtu.be"; // Alternatif: https://invidious.nerdvpn.de
+// PIPED API ALTYAPISI & TAM MUARTPLAYER ÖZELLİKLERİ
+const PIPED_INSTANCE = "https://pipedapi.kavin.rocks"; // Piped'ın ana sunucusu
 
-let playlist = []; // Çalınan liste
-let originalPlaylist = []; // Karıştırma kapandığında orijinal sıraya dönmek için
+let playlist = []; 
+let originalPlaylist = []; 
 let currentIndex = 0;
 let loopState = 0; // 0: KAPALI, 1: LİSTE, 2: TEKLİ
 let isShuffled = false;
 let loopCheckInterval;
 let videoPlayer;
 
-// Sayfa yüklendiğinde oynatıcıyı ve geçmişi hazırla
 window.onload = () => {
     const container = document.getElementById('main-player');
     container.innerHTML = ""; 
     
-    // HTML5 Reklamsız Oynatıcımızı yaratıyoruz
+    // HTML5 Oynatıcı
     videoPlayer = document.createElement('video');
     videoPlayer.id = "main-video-player";
     videoPlayer.controls = true;
@@ -23,20 +22,17 @@ window.onload = () => {
     videoPlayer.style.height = "100%";
     videoPlayer.style.backgroundColor = "#000";
     
-    // Şarkı bittiğinde ne olacağını biz belirliyoruz (Google değil)
     videoPlayer.onended = onVideoEnded;
-    
-    // Hata olursa o şarkıyı atla
     videoPlayer.onerror = onPlayerError;
 
     container.appendChild(videoPlayer);
     
-    updateHistoryUI(); // Geçmiş listesini doldur
-    startLoopTimer(); // SENİN O EFSANE TEKLİ DÖNGÜ MOTORUN BURADA!
+    updateHistoryUI(); 
+    startLoopTimer(); 
     changeVolume(document.getElementById('volume-slider').value);
 };
 
-// Kusursuz Tekli Döngü Motoru (Şarkı bitmeden 1.2 saniye kala başa sarma taktiği)
+// Kusursuz Tekli Döngü Motoru
 function startLoopTimer() {
     if (loopCheckInterval) clearInterval(loopCheckInterval);
     loopCheckInterval = setInterval(() => {
@@ -51,20 +47,17 @@ function startLoopTimer() {
     }, 500);
 }
 
-// Oynatılamayan videoyu otomatik atlama
 function onPlayerError() {
     document.getElementById('status').innerText = "Video oynatılamıyor, atlanıyor...";
     setTimeout(() => nextTrack(), 800);
 }
 
-// Oynatıcı sonu davranışları (Eskiden YouTube'un kendisinin yaptığı şeyler)
 function onVideoEnded() {
-    if (loopState === 2) return; // Tekli döngüyü timer (LoopTimer) hallediyor
+    if (loopState === 2) return; 
     
     if (currentIndex < playlist.length - 1) {
         nextTrack();
     } else if (loopState === 1) {
-        // Liste sonuna geldik ve liste döngüsü açıksa başa dön
         currentIndex = 0;
         playTrack(0);
     } else {
@@ -73,7 +66,7 @@ function onVideoEnded() {
     }
 }
 
-// YÜKLEME BUTONU (Linkleri Ayıkla, Hafızaya At)
+// Piped API ile Liste ve Video Çekme
 async function loadMedia() {
     const inp = document.getElementById('yt-link');
     const link = inp.value.trim();
@@ -83,35 +76,38 @@ async function loadMedia() {
     const listId = url.searchParams.get("list");
     const videoId = url.searchParams.get("v");
 
-    isShuffled = false; // Karıştırmayı sıfırla
+    isShuffled = false; 
     document.getElementById('shuffle-btn').style.color = "#fff";
     document.getElementById('shuffle-btn').style.borderColor = "#fff";
-    document.getElementById('status').innerText = "Özgür API'den liste çekiliyor (Reklamsız)...";
+    document.getElementById('status').innerText = "Piped API'den veri çekiliyor...";
 
     if (listId) {
-        // LİSTE YÜKLEME
         try {
-            const res = await fetch(`${INVIDIOUS_INSTANCE}/api/v1/playlists/${listId}`);
+            const res = await fetch(`${PIPED_INSTANCE}/playlists/${listId}`);
+            if (!res.ok) throw new Error("API Hatası");
             const data = await res.json();
             
-            // YouTube API'deki gibi listeyi kendi objemize çeviriyoruz
-            playlist = data.videos.map(v => ({ videoId: v.videoId, title: v.title }));
-            originalPlaylist = [...playlist]; // Karıştırma için yedek al
+            // Piped'ın yapısına göre listeyi ayıkla
+            playlist = data.relatedStreams.map(v => {
+                // Piped URL formatı genelde "/watch?v=ID" şeklindedir
+                let vId = v.url.includes("?v=") ? v.url.split("?v=")[1] : v.url;
+                return { videoId: vId, title: v.title };
+            });
+            
+            originalPlaylist = [...playlist]; 
             currentIndex = 0;
             
-            // Eskiden olduğu gibi liste ismini sor/hafızadan çek
             let history = JSON.parse(localStorage.getItem('muartHistory') || "[]");
             let existing = history.find(i => i.link.includes(listId));
-            let finalTitle = existing ? existing.title : (prompt("Liste İsmi:", data.title || "Yeni Playlist") || data.title);
+            let finalTitle = existing ? existing.title : (prompt("Liste İsmi:", data.name || "Yeni Playlist") || data.name);
             
             saveToHistory(link, finalTitle);
-            updateQueueUI(); // Sağ tarafa listeyi döşe
-            playTrack(currentIndex); // Çalmaya başla
+            updateQueueUI(); 
+            playTrack(currentIndex); 
         } catch (e) {
-            document.getElementById('status').innerText = "Liste çekilirken hata oluştu!";
+            document.getElementById('status').innerText = "Liste çekilemedi! Gizli liste olabilir.";
         }
     } else if (videoId) {
-        // TEKLİ VİDEO YÜKLEME
         playlist = [{ videoId: videoId, title: "Bekleniyor..." }];
         originalPlaylist = [...playlist];
         currentIndex = 0;
@@ -120,42 +116,44 @@ async function loadMedia() {
     inp.value = "";
 }
 
-// SEÇİLEN VİDEOYU OYNATAN GERÇEK MOTOR (API'den MP4 Link Çeker)
+// Piped API üzerinden Saf Video Oynatma
 async function playTrack(index) {
     if (!playlist[index]) return;
     const vId = playlist[index].videoId;
     
-    document.getElementById('status').innerText = "Medya çözülüyor...";
+    document.getElementById('status').innerText = "Medya çözülüyor (Piped)...";
     
     try {
-        const res = await fetch(`${INVIDIOUS_INSTANCE}/api/v1/videos/${vId}`);
+        const res = await fetch(`${PIPED_INSTANCE}/streams/${vId}`);
+        if (!res.ok) throw new Error("API Hatası");
         const data = await res.json();
         
-        // SIFIR REKLAM! Saf videoyu sunucudan çek
-        const stream = data.formatStreams.find(s => s.container === "mp4" && s.resolution !== "audio only") || data.formatStreams[0];
-        
-        if (!stream) throw new Error("Stream bulunamadı");
+        // Piped'dan uygun MP4 veya Audio stream bul
+        // Önce hem ses hem görüntü olanı arar, bulamazsa ilk bulduğuna geçer
+        let stream = data.videoStreams.find(s => s.videoOnly === false && s.mimeType.includes("mp4"));
+        if (!stream && data.audioStreams.length > 0) stream = data.audioStreams[0]; // Sadece ses
+        if (!stream) stream = data.videoStreams[0]; 
+
+        if (!stream) throw new Error("Oynatılabilir stream bulunamadı");
 
         videoPlayer.src = stream.url;
         videoPlayer.play();
         
-        // Başlığı güncelle
         playlist[index].title = data.title || "Bilinmeyen Şarkı";
         document.getElementById('status').innerText = "Çalınıyor: " + playlist[index].title;
         document.getElementById('play-pause-btn').innerText = "|| DURDUR";
         
-        // Tekli video yüklediyse geçmişe kaydet
         if (playlist.length === 1) {
             saveToHistory("https://www.youtube.com/watch?v=" + vId, playlist[index].title);
         }
         
-        updateQueueUI(); // Oynatılan şarkıyı sarı vs. boyamak için listeyi güncelle
+        updateQueueUI(); 
     } catch (e) {
+        console.error(e);
         onPlayerError();
     }
 }
 
-// LİSTEYİ GÜNCELLEME EKRANI (Queue)
 function updateQueueUI() {
     const div = document.getElementById('queue-list');
     if (playlist.length <= 1) { 
@@ -167,13 +165,12 @@ function updateQueueUI() {
     playlist.forEach((item, idx) => {
         const el = document.createElement('div');
         el.className = `queue-item ${idx === currentIndex ? 'active' : ''}`;
-        el.innerText = item.title || "Şarkı " + (idx + 1) + " (Bekleniyor...)";
+        el.innerText = item.title || "Şarkı " + (idx + 1);
         el.onclick = () => { currentIndex = idx; playTrack(idx); };
         div.appendChild(el);
     });
 }
 
-// BUTON - DÖNGÜ (Loop)
 function toggleLoop() {
     loopState = (loopState + 1) % 3;
     const btn = document.getElementById('loop-btn');
@@ -183,7 +180,6 @@ function toggleLoop() {
     btn.style.borderColor = cfg[loopState].c;
 }
 
-// BUTON - KARIŞTIR (Shuffle) - Kendi Karıştırma Algoritmamız!
 function toggleShuffle() {
     if (playlist.length <= 1) return;
     
@@ -193,28 +189,24 @@ function toggleShuffle() {
     btn.style.borderColor = isShuffled ? "#ff0000" : "#fff";
 
     if (isShuffled) {
-        // Mevcut çalan şarkıyı koru, geri kalanı dağıt
         let currentItem = playlist[currentIndex];
         let remaining = playlist.filter((_, idx) => idx !== currentIndex);
         
-        // Gelişmiş Matematiksel Karıştırma (Fisher-Yates Shuffle)
         for (let i = remaining.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
         }
         
-        playlist = [currentItem, ...remaining]; // Çalan şarkı en başa, kalanlar arkaya karışık
+        playlist = [currentItem, ...remaining]; 
         currentIndex = 0; 
     } else {
-        // Orijinal Sıraya Geri Dön
         let currentItem = playlist[currentIndex];
         playlist = [...originalPlaylist];
         
-        // Şarkının eski yerini bul, dinlemeye oradan devam etsin
         currentIndex = playlist.findIndex(p => p.videoId === currentItem.videoId);
         if(currentIndex === -1) currentIndex = 0;
     }
-    updateQueueUI(); // Yan listeyi baştan çiz
+    updateQueueUI(); 
 }
 
 function togglePlay() { 
@@ -248,7 +240,6 @@ function changeVolume(v) {
     if (videoPlayer) videoPlayer.volume = v / 100; 
 }
 
-// GEÇMİŞ FONKSİYONLARI (Tamamen bozulmadan duruyor)
 function saveToHistory(l, t) {
     let h = JSON.parse(localStorage.getItem('muartHistory') || "[]");
     if (h.some(i => i.link === l)) return;
@@ -269,7 +260,7 @@ function updateHistoryUI() {
         item.innerHTML = `<span class="history-text">>> ${i.title}</span><button class="del-btn">X</button>`;
         item.querySelector('.history-text').onclick = () => { document.getElementById('yt-link').value = i.link; loadMedia(); };
         item.querySelector('.del-btn').onclick = (e) => {
-            e.stopPropagation(); // Butona basılınca şarkının açılmasını engeller
+            e.stopPropagation(); 
             let newH = JSON.parse(localStorage.getItem('muartHistory')).filter(x => x.link !== i.link);
             localStorage.setItem('muartHistory', JSON.stringify(newH));
             updateHistoryUI();
